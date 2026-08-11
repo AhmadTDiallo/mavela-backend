@@ -12,6 +12,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -59,6 +60,28 @@ public class Customer {
             length = 10
     )
     private String preferredLocale;
+
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
+
+    @Column(length = 2)
+    private String nationality;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 24)
+    private Gender gender;
+
+    @Column(name = "address_line", length = 200)
+    private String addressLine;
+
+    @Column(length = 100)
+    private String city;
+
+    @Column(length = 100)
+    private String province;
+
+    @Column(name = "profile_completed_at")
+    private Instant profileCompletedAt;
 
     @Column(name = "phone_verified_at")
     private Instant phoneVerifiedAt;
@@ -155,6 +178,63 @@ public class Customer {
         }
     }
 
+    public void updateProfile(
+            String firstName,
+            String lastName,
+            String preferredLocale,
+            LocalDate dateOfBirth,
+            String nationality,
+            Gender gender,
+            String addressLine,
+            String city,
+            String province,
+            Instant completedAt
+    ) {
+        if (firstName != null) {
+            this.firstName = firstName;
+        }
+        if (lastName != null) {
+            this.lastName = lastName;
+        }
+        if (preferredLocale != null) {
+            this.preferredLocale = preferredLocale;
+        }
+        if (dateOfBirth != null) {
+            this.dateOfBirth = dateOfBirth;
+        }
+        if (nationality != null) {
+            this.nationality = nationality;
+        }
+        if (gender != null) {
+            this.gender = gender;
+        }
+        if (addressLine != null) {
+            this.addressLine = addressLine;
+        }
+        if (city != null) {
+            this.city = city;
+        }
+        if (province != null) {
+            this.province = province;
+        }
+
+        if (profileCompletedAt == null && hasCompletedProfile()) {
+            profileCompletedAt = completedAt;
+        }
+    }
+
+    private boolean hasCompletedProfile() {
+        return firstName != null
+                && lastName != null
+                && preferredLocale != null
+                && dateOfBirth != null
+                && nationality != null
+                && gender != null
+                && addressLine != null
+                && city != null
+                && province != null;
+    }
+
     public boolean isPhoneVerified() {
         return phoneVerifiedAt != null;
     }
@@ -189,6 +269,34 @@ public class Customer {
 
     public String getPreferredLocale() {
         return preferredLocale;
+    }
+
+    public LocalDate getDateOfBirth() {
+        return dateOfBirth;
+    }
+
+    public String getNationality() {
+        return nationality;
+    }
+
+    public Gender getGender() {
+        return gender;
+    }
+
+    public String getAddressLine() {
+        return addressLine;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public String getProvince() {
+        return province;
+    }
+
+    public Instant getProfileCompletedAt() {
+        return profileCompletedAt;
     }
 
     public Instant getPhoneVerifiedAt() {

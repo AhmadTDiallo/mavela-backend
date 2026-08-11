@@ -3,6 +3,7 @@ package com.mavela.backend.customer;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 public record CustomerResponse(
@@ -36,6 +37,30 @@ public record CustomerResponse(
         @Schema(description = "Preferred language for customer communications.")
         String preferredLocale,
 
+        @Schema(description = "Customer date of birth when supplied.")
+        LocalDate dateOfBirth,
+
+        @Schema(description = "Customer nationality code when supplied.")
+        String nationality,
+
+        @Schema(description = "Customer gender when supplied.")
+        Gender gender,
+
+        @Schema(description = "Customer residential address when supplied.")
+        String addressLine,
+
+        @Schema(description = "Customer city of residence when supplied.")
+        String city,
+
+        @Schema(description = "Customer province of residence when supplied.")
+        String province,
+
+        @Schema(description = "Whether the customer has completed all profile fields.")
+        boolean profileComplete,
+
+        @Schema(description = "Timestamp when the customer profile was first completed.")
+        Instant profileCompletedAt,
+
         @Schema(
                 description = "Timestamp when the customer's phone number was verified."
         )
@@ -66,6 +91,14 @@ public record CustomerResponse(
                 customer.getFirstName(),
                 customer.getLastName(),
                 customer.getPreferredLocale(),
+                customer.getDateOfBirth(),
+                customer.getNationality(),
+                customer.getGender(),
+                customer.getAddressLine(),
+                customer.getCity(),
+                customer.getProvince(),
+                customer.getProfileCompletedAt() != null,
+                customer.getProfileCompletedAt(),
                 customer.getPhoneVerifiedAt(),
                 customer.getStatus(),
                 customer.getKycStatus(),
