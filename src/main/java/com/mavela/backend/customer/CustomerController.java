@@ -1,5 +1,11 @@
 package com.mavela.backend.customer;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +22,10 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/customers")
+@Tag(
+        name = "Customers",
+        description = "Customer registration and authenticated profile access."
+)
 public class CustomerController {
 
     private final CustomerService customerService;
@@ -25,6 +35,24 @@ public class CustomerController {
     }
 
     @PostMapping
+    @Operation(
+            summary = "Register a customer",
+            description = "Creates a customer in the onboarding flow."
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Customer registered successfully."
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "The registration request is invalid."
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "A customer already uses the supplied phone number or email address."
+            )
+    })
     public ResponseEntity<CustomerResponse> register(
             @Valid @RequestBody RegisterCustomerRequest request
     ) {
@@ -37,8 +65,23 @@ public class CustomerController {
     }
 
     @GetMapping("/me")
+    @Operation(
+            summary = "Get the current customer",
+            description = "Returns the customer identified by the bearer token."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Current customer returned successfully."
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "The bearer token is missing, invalid, or does not identify a customer."
+            )
+    })
     public ResponseEntity<CustomerResponse> getCurrentCustomer(
-            @AuthenticationPrincipal Jwt jwt
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
         UUID customerId = extractCustomerId(jwt);
 

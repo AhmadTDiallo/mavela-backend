@@ -1,5 +1,6 @@
 package com.mavela.backend.customer;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -7,6 +8,9 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterCustomerRequest(
 
+        @Schema(
+                description = "Customer phone number in international E.164 format."
+        )
         @NotBlank(message = "PHONE_NUMBER_REQUIRED")
         @Pattern(
                 regexp = "^(?:\\s*|\\+[1-9][0-9]{7,14})$",
@@ -14,6 +18,9 @@ public record RegisterCustomerRequest(
         )
         String phoneNumber,
 
+        @Schema(
+                description = "Optional customer email address."
+        )
         @Email(message = "EMAIL_INVALID_FORMAT")
         @Size(
                 max = 254,
@@ -21,6 +28,7 @@ public record RegisterCustomerRequest(
         )
         String email,
 
+        @Schema(description = "Customer given name.")
         @NotBlank(message = "FIRST_NAME_REQUIRED")
         @Size(
                 max = 100,
@@ -28,6 +36,7 @@ public record RegisterCustomerRequest(
         )
         String firstName,
 
+        @Schema(description = "Customer family name.")
         @NotBlank(message = "LAST_NAME_REQUIRED")
         @Size(
                 max = 100,
@@ -35,6 +44,10 @@ public record RegisterCustomerRequest(
         )
         String lastName,
 
+        @Schema(
+                description = "Preferred language for customer communications.",
+                allowableValues = {"en", "fr-CD"}
+        )
         @NotBlank(message = "PREFERRED_LOCALE_REQUIRED")
         @Pattern(
                 regexp = "^(?:\\s*|en|fr-CD)$",
