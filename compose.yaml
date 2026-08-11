@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:18.4
+    environment:
+      POSTGRES_DB: mavela
+      POSTGRES_USER: mavela_app
+      POSTGRES_PASSWORD: "${MAVELA_DB_PASSWORD:?MAVELA_DB_PASSWORD is required}"
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - mavela_postgres_data:/var/lib/postgresql
+
+volumes:
+  mavela_postgres_data:
