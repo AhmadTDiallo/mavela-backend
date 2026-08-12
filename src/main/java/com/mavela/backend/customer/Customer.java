@@ -97,7 +97,7 @@ public class Customer {
     @Column(
             name = "kyc_status",
             nullable = false,
-            length = 20
+            length = 24
     )
     private KycStatus kycStatus = KycStatus.NOT_STARTED;
 
@@ -241,6 +241,26 @@ public class Customer {
 
     public boolean hasUsername() {
         return username != null;
+    }
+
+    public boolean isProfileComplete() {
+        return profileCompletedAt != null;
+    }
+
+    public void startKycApplication() {
+        if (!isProfileComplete()) {
+            throw new IllegalStateException(
+                    "A complete customer profile is required before KYC can start."
+            );
+        }
+
+        if (kycStatus != KycStatus.NOT_STARTED) {
+            throw new IllegalStateException(
+                    "KYC can only start when it has not been started."
+            );
+        }
+
+        kycStatus = KycStatus.IN_PROGRESS;
     }
 
     public UUID getId() {
