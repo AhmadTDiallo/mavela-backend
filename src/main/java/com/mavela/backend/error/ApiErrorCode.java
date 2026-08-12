@@ -18,6 +18,22 @@ public enum ApiErrorCode {
             "The customer could not be found."
     ),
 
+    KYC_PROFILE_INCOMPLETE(
+            "Complete your customer profile before starting KYC."
+    ),
+
+    KYC_APPLICATION_ALREADY_EXISTS(
+            "A KYC application already exists for this customer."
+    ),
+
+    KYC_START_NOT_ALLOWED(
+            "KYC cannot be started in the customer's current state."
+    ),
+
+    KYC_APPLICATION_NOT_FOUND(
+            "No KYC application was found for this customer."
+    ),
+
     PHONE_ALREADY_VERIFIED(
             "This phone number has already been verified."
     ),

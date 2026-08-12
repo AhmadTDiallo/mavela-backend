@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -87,6 +88,41 @@ public class CustomerController {
 
         CustomerResponse response =
                 customerService.getCurrentCustomer(customerId);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/me")
+    @Operation(
+            summary = "Update the current customer profile",
+            description = "Partially updates the profile of the customer identified by the bearer token."
+    )
+    @SecurityRequirement(name = "bearerAuth")
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "Customer profile updated successfully."
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "The profile update request is invalid."
+            ),
+            @ApiResponse(
+                    responseCode = "401",
+                    description = "The bearer token is missing, invalid, or does not identify a customer."
+            )
+    })
+    public ResponseEntity<CustomerResponse> updateCurrentCustomerProfile(
+            @Valid @RequestBody UpdateCustomerProfileRequest request,
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
+    ) {
+        UUID customerId = extractCustomerId(jwt);
+
+        CustomerResponse response =
+                customerService.updateCurrentCustomerProfile(
+                        customerId,
+                        request
+                );
 
         return ResponseEntity.ok(response);
     }

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -85,6 +86,37 @@ public class CustomerService {
         return CustomerResponse.from(customer);
     }
 
+    @Transactional
+    public CustomerResponse updateCurrentCustomerProfile(
+            UUID customerId,
+            UpdateCustomerProfileRequest request
+    ) {
+        Customer customer = customerRepository
+                .findById(customerId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "AUTHENTICATED_CUSTOMER_NOT_FOUND"
+                        )
+                );
+
+        customer.updateProfile(
+                trim(request.firstName()),
+                trim(request.lastName()),
+                trim(request.preferredLocale()),
+                request.dateOfBirth(),
+                normalizeNationality(request.nationality()),
+                request.gender(),
+                trim(request.addressLine()),
+                trim(request.city()),
+                trim(request.province()),
+                Instant.now()
+        );
+
+        Customer savedCustomer = customerRepository.saveAndFlush(customer);
+        return CustomerResponse.from(savedCustomer);
+    }
+
     private String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {
             return null;
@@ -93,5 +125,18 @@ public class CustomerService {
         return email
                 .trim()
                 .toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeNationality(String nationality) {
+        String trimmedNationality = trim(nationality);
+        if (trimmedNationality == null) {
+            return null;
+        }
+
+        return trimmedNationality.toUpperCase(Locale.ROOT);
+    }
+
+    private String trim(String value) {
+        return value == null ? null : value.trim();
     }
 }
