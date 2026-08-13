@@ -28,6 +28,17 @@ public class OpenApiConfig {
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
                         )
+                        .addSecuritySchemes(
+                                "adminBearerAuth",
+                                new SecurityScheme()
+                                        .type(SecurityScheme.Type.HTTP)
+                                        .scheme("bearer")
+                                        .bearerFormat("JWT")
+                                        .description(
+                                                "Cognito staff access token. "
+                                                        + "Customer bearer tokens are not accepted."
+                                        )
+                        )
                 );
     }
 }

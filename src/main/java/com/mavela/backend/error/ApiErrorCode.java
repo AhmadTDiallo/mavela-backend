@@ -244,6 +244,62 @@ public enum ApiErrorCode {
 
     REFRESH_TOKEN_REUSE_DETECTED(
             "Refresh token reuse was detected. Sign in again."
+    ),
+
+    ADMIN_AUTHENTICATION_REQUIRED(
+            "Administrator authentication is required."
+    ),
+
+    ADMIN_AUTHENTICATION_UNAVAILABLE(
+            "Administrator authentication is not configured."
+    ),
+
+    ADMIN_STAFF_NOT_PROVISIONED(
+            "This staff identity is not authorized for Mavela administration."
+    ),
+
+    ADMIN_STAFF_ACCOUNT_INACTIVE(
+            "This staff account is inactive."
+    ),
+
+    ADMIN_PERMISSION_DENIED(
+            "You do not have permission to perform this administrator action."
+    ),
+
+    KYC_ADMIN_APPLICATION_NOT_FOUND(
+            "The requested KYC application could not be found."
+    ),
+
+    KYC_APPLICATION_NOT_REVIEWABLE(
+            "This KYC application cannot be reviewed in its current state."
+    ),
+
+    KYC_APPLICATION_ALREADY_CLAIMED(
+            "This KYC application has already been claimed by another reviewer."
+    ),
+
+    KYC_REVIEWER_ASSIGNMENT_MISMATCH(
+            "This KYC application is assigned to a different reviewer."
+    ),
+
+    KYC_STALE_APPLICATION_VERSION(
+            "This KYC application changed before your action could be applied. Refresh and try again."
+    ),
+
+    KYC_INVALID_REVIEW_TRANSITION(
+            "This KYC review transition is not allowed."
+    ),
+
+    KYC_EVIDENCE_NOT_PART_OF_APPLICATION(
+            "The requested KYC evidence could not be found."
+    ),
+
+    KYC_REVIEW_REASON_REQUIRED(
+            "A review reason and customer-safe message are required."
+    ),
+
+    KYC_EVIDENCE_STREAM_FAILED(
+            "The requested KYC evidence is temporarily unavailable."
     );
 
     private final String defaultMessage;

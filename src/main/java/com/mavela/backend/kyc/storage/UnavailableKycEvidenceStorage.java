@@ -17,6 +17,11 @@ final class UnavailableKycEvidenceStorage implements KycEvidenceStorage {
     }
 
     @Override
+    public EvidenceStream openRead(ReadRequest request) {
+        throw new KycEvidenceStorageException();
+    }
+
+    @Override
     public void delete(String storageKey) {
         throw new KycEvidenceStorageException();
     }

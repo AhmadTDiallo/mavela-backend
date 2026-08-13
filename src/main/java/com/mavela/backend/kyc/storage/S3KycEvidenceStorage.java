@@ -4,6 +4,7 @@ import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.regions.Region;
@@ -24,6 +25,9 @@ import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignReques
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -181,6 +185,64 @@ final class S3KycEvidenceStorage implements KycEvidenceStorage, AutoCloseable {
         } catch (KycEvidenceStorageException exception) {
             throw exception;
         } catch (SdkException exception) {
+            throw new KycEvidenceStorageException();
+        }
+    }
+
+    @Override
+    public EvidenceStream openRead(ReadRequest request) {
+        validateExpectedObject(
+                request.expectedMimeType(),
+                request.expectedByteSize()
+        );
+
+        ResponseInputStream<GetObjectResponse> response = null;
+        try {
+            response = client.getObject(
+                    GetObjectRequest.builder()
+                            .bucket(properties.getBucket())
+                            .key(request.storageKey())
+                            .build()
+            );
+
+            String expectedMimeType = normalizeMimeType(
+                    request.expectedMimeType()
+            );
+            GetObjectResponse metadata = response.response();
+            if (!Objects.equals(
+                    normalizeMimeType(metadata.contentType()),
+                    expectedMimeType
+            ) || metadata.contentLength() == null
+                    || metadata.contentLength() != request.expectedByteSize()) {
+                response.close();
+                throw new KycEvidenceStorageException();
+            }
+
+            byte[] signature = response.readNBytes(8);
+            if (!matchesMagicBytes(signature, expectedMimeType)) {
+                response.close();
+                throw new KycEvidenceStorageException();
+            }
+
+            InputStream restoredStream = new SequenceInputStream(
+                    new ByteArrayInputStream(signature),
+                    response
+            );
+            return new EvidenceStream(
+                    expectedMimeType,
+                    request.expectedByteSize(),
+                    restoredStream
+            );
+        } catch (KycEvidenceStorageException exception) {
+            throw exception;
+        } catch (SdkException | IOException exception) {
+            if (response != null) {
+                try {
+                    response.close();
+                } catch (IOException ignored) {
+                    // The opaque storage failure below is the only safe API result.
+                }
+            }
             throw new KycEvidenceStorageException();
         }
     }

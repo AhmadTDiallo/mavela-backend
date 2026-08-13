@@ -2,6 +2,7 @@ package com.mavela.backend.kyc;
 
 import com.mavela.backend.customer.Customer;
 import com.mavela.backend.customer.KycStatus;
+import com.mavela.backend.admin.staff.StaffUser;
 import jakarta.persistence.Column;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -60,8 +61,15 @@ public class KycApplication {
     @Column(name = "decided_at")
     private Instant decidedAt;
 
+    @Column(name = "reviewed_at")
+    private Instant reviewedAt;
+
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_reviewer_id")
+    private StaffUser assignedReviewer;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "current_step", nullable = false, length = 40)
@@ -182,6 +190,14 @@ public class KycApplication {
             );
         }
 
+        if (status == KycStatus.RESUBMISSION_REQUIRED) {
+            // A new staff member must explicitly claim the resubmitted case.
+            assignedReviewer = null;
+            rejectionReason = null;
+            decidedAt = null;
+            reviewedAt = null;
+            reviewStartedAt = null;
+        }
         status = KycStatus.SUBMITTED;
         if (this.submittedAt == null) {
             this.submittedAt = submittedAt;
@@ -209,6 +225,62 @@ public class KycApplication {
         profileAddressLine = customer.getAddressLine();
         profileCity = customer.getCity();
         profileProvince = customer.getProvince();
+    }
+
+    public void claim(StaffUser reviewer, Instant reviewStartedAt) {
+        if (status != KycStatus.SUBMITTED || assignedReviewer != null) {
+            throw new IllegalStateException(
+                    "Only an unassigned submitted KYC application can be claimed."
+            );
+        }
+
+        assignedReviewer = reviewer;
+        status = KycStatus.UNDER_REVIEW;
+        this.reviewStartedAt = reviewStartedAt;
+    }
+
+    public void release(Instant releasedAt) {
+        requireAssignedUnderReview();
+        assignedReviewer = null;
+        status = KycStatus.SUBMITTED;
+        lastSavedAt = releasedAt;
+    }
+
+    public void approve(Instant decidedAt) {
+        requireAssignedUnderReview();
+        status = KycStatus.APPROVED;
+        this.decidedAt = decidedAt;
+        reviewedAt = decidedAt;
+        lastSavedAt = decidedAt;
+    }
+
+    public void requestResubmission(
+            String customerMessage,
+            Instant decidedAt
+    ) {
+        requireAssignedUnderReview();
+        status = KycStatus.RESUBMISSION_REQUIRED;
+        rejectionReason = customerMessage;
+        this.decidedAt = decidedAt;
+        reviewedAt = decidedAt;
+        lastSavedAt = decidedAt;
+    }
+
+    public void reject(String customerMessage, Instant decidedAt) {
+        requireAssignedUnderReview();
+        status = KycStatus.REJECTED;
+        rejectionReason = customerMessage;
+        this.decidedAt = decidedAt;
+        reviewedAt = decidedAt;
+        lastSavedAt = decidedAt;
+    }
+
+    private void requireAssignedUnderReview() {
+        if (status != KycStatus.UNDER_REVIEW || assignedReviewer == null) {
+            throw new IllegalStateException(
+                    "This KYC application is not under assigned review."
+            );
+        }
     }
 
     public UUID getId() {
@@ -247,8 +319,21 @@ public class KycApplication {
         return decidedAt;
     }
 
+    public Instant getReviewedAt() {
+        return reviewedAt;
+    }
+
     public String getRejectionReason() {
         return rejectionReason;
+    }
+
+    public StaffUser getAssignedReviewer() {
+        return assignedReviewer;
+    }
+
+    public boolean isAssignedTo(UUID staffUserId) {
+        return assignedReviewer != null
+                && assignedReviewer.getId().equals(staffUserId);
     }
 
     public KycDraftStep getCurrentStep() {
@@ -305,6 +390,18 @@ public class KycApplication {
 
     public String getProfileProvince() {
         return profileProvince;
+    }
+
+    public boolean hasCompleteProfileSnapshot() {
+        return profileFirstName != null
+                && profileLastName != null
+                && profilePreferredLocale != null
+                && profileDateOfBirth != null
+                && profileNationality != null
+                && profileGender != null
+                && profileAddressLine != null
+                && profileCity != null
+                && profileProvince != null;
     }
 
     public List<KycDocument> getDocuments() {

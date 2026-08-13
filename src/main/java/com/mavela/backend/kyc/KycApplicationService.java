@@ -32,19 +32,22 @@ public class KycApplicationService {
     private final KycDocumentRepository documentRepository;
     private final KycEvidenceStorage evidenceStorage;
     private final KycEvidenceStorageProperties storageProperties;
+    private final KycApplicationReadinessValidator readinessValidator;
 
     public KycApplicationService(
             CustomerRepository customerRepository,
             KycApplicationRepository applicationRepository,
             KycDocumentRepository documentRepository,
             KycEvidenceStorage evidenceStorage,
-            KycEvidenceStorageProperties storageProperties
+            KycEvidenceStorageProperties storageProperties,
+            KycApplicationReadinessValidator readinessValidator
     ) {
         this.customerRepository = customerRepository;
         this.applicationRepository = applicationRepository;
         this.documentRepository = documentRepository;
         this.evidenceStorage = evidenceStorage;
         this.storageProperties = storageProperties;
+        this.readinessValidator = readinessValidator;
     }
 
     /**
@@ -299,25 +302,11 @@ public class KycApplicationService {
             throw workflowException(ApiErrorCode.KYC_SUBMISSION_NOT_ALLOWED);
         }
 
-        if (!customer.isProfileComplete()) {
-            throw workflowException(
-                    ApiErrorCode.KYC_PROFILE_INCOMPLETE,
-                    KycDraftStep.COMPLETE_INFORMATION.name()
-            );
-        }
-
-        if (application.getDocumentType() == null) {
-            throw workflowException(
-                    ApiErrorCode.KYC_SUBMISSION_INCOMPLETE,
-                    KycDraftStep.SELECT_DOCUMENT.name()
-            );
-        }
-
         List<KycDocument> documents = documentRepository
                 .findAllByApplication_IdAndDeletedAtIsNullOrderByCreatedAtAsc(
                         application.getId()
                 );
-        requireMandatoryEvidence(application.getDocumentType(), documents);
+        requireSubmissionReadiness(customer, application, documents);
 
         Instant now = Instant.now();
         application.captureProfileSnapshot(customer);
@@ -411,58 +400,29 @@ public class KycApplicationService {
         }
     }
 
-    private void requireMandatoryEvidence(
-            KycDocumentType documentType,
+    private void requireSubmissionReadiness(
+            Customer customer,
+            KycApplication application,
             List<KycDocument> documents
     ) {
-        if (documentType == KycDocumentType.PASSPORT) {
-            requireValidatedEvidence(
-                    documents,
-                    KycEvidenceType.DOCUMENT,
-                    KycDocumentSide.PHOTO_PAGE,
-                    KycDraftStep.DOCUMENT_FRONT
+        try {
+            readinessValidator.requireReadyForSubmission(
+                    customer,
+                    application,
+                    documents
             );
-        } else {
-            requireValidatedEvidence(
-                    documents,
-                    KycEvidenceType.DOCUMENT,
-                    KycDocumentSide.FRONT,
-                    KycDraftStep.DOCUMENT_FRONT
-            );
-            requireValidatedEvidence(
-                    documents,
-                    KycEvidenceType.DOCUMENT,
-                    KycDocumentSide.BACK,
-                    KycDraftStep.DOCUMENT_BACK
-            );
-        }
+        } catch (KycApplicationReadinessException exception) {
+            if (exception.getReason()
+                    == KycApplicationReadinessException.Reason.PROFILE_INCOMPLETE) {
+                throw workflowException(
+                        ApiErrorCode.KYC_PROFILE_INCOMPLETE,
+                        exception.getStep().name()
+                );
+            }
 
-        requireValidatedEvidence(
-                documents,
-                KycEvidenceType.SELFIE,
-                KycDocumentSide.NOT_APPLICABLE,
-                KycDraftStep.SELFIE
-        );
-    }
-
-    private void requireValidatedEvidence(
-            List<KycDocument> documents,
-            KycEvidenceType evidenceType,
-            KycDocumentSide documentSide,
-            KycDraftStep step
-    ) {
-        boolean present = documents.stream().anyMatch(document ->
-                document.isActive()
-                        && document.getEvidenceType() == evidenceType
-                        && document.getDocumentSide() == documentSide
-                        && document.getUploadStatus()
-                        == KycEvidenceUploadStatus.VALIDATED
-        );
-
-        if (!present) {
             throw workflowException(
                     ApiErrorCode.KYC_SUBMISSION_INCOMPLETE,
-                    step.name()
+                    exception.getStep().name()
             );
         }
     }

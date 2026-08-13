@@ -14,6 +14,15 @@ public interface KycDocumentRepository
             UUID customerId
     );
 
+    /**
+     * Application-scoped lookup for staff review operations. The caller must
+     * authorize access to the application before opening its evidence.
+     */
+    Optional<KycDocument> findByIdAndApplication_IdAndDeletedAtIsNull(
+            UUID evidenceId,
+            UUID applicationId
+    );
+
     List<KycDocument> findAllByApplication_IdAndDeletedAtIsNullOrderByCreatedAtAsc(
             UUID applicationId
     );
