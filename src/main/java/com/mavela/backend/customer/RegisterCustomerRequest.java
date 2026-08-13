@@ -46,11 +46,11 @@ public record RegisterCustomerRequest(
 
         @Schema(
                 description = "Preferred language for customer communications.",
-                allowableValues = {"en", "fr-CD"}
+                allowableValues = {"fr", "en", "ln", "sw", "fr-CD"}
         )
         @NotBlank(message = "PREFERRED_LOCALE_REQUIRED")
         @Pattern(
-                regexp = "^(?:\\s*|en|fr-CD)$",
+                regexp = "^\\s*(?:fr|en|ln|sw|fr-CD)\\s*$",
                 message = "PREFERRED_LOCALE_UNSUPPORTED"
         )
         String preferredLocale

@@ -19,7 +19,7 @@ public enum ApiErrorCode {
     ),
 
     KYC_PROFILE_INCOMPLETE(
-            "Complete your customer profile before starting KYC."
+            "Complete your customer profile before submitting KYC."
     ),
 
     KYC_APPLICATION_ALREADY_EXISTS(
@@ -32,6 +32,38 @@ public enum ApiErrorCode {
 
     KYC_APPLICATION_NOT_FOUND(
             "No KYC application was found for this customer."
+    ),
+
+    KYC_DRAFT_NOT_EDITABLE(
+            "This KYC application can no longer be changed."
+    ),
+
+    KYC_EVIDENCE_NOT_FOUND(
+            "The requested KYC evidence could not be found."
+    ),
+
+    KYC_EVIDENCE_UPLOAD_NOT_ALLOWED(
+            "This evidence cannot be uploaded in the current KYC state."
+    ),
+
+    KYC_EVIDENCE_INVALID(
+            "The identity evidence does not meet the upload requirements."
+    ),
+
+    KYC_EVIDENCE_UPLOAD_FAILED(
+            "The identity evidence upload could not be completed."
+    ),
+
+    KYC_SUBMISSION_INCOMPLETE(
+            "Complete the required profile information and evidence before submitting KYC."
+    ),
+
+    KYC_SUBMISSION_NOT_ALLOWED(
+            "This KYC application cannot be submitted in its current state."
+    ),
+
+    KYC_ACCESS_RESTRICTED(
+            "Complete KYC verification before accessing this feature."
     ),
 
     PHONE_ALREADY_VERIFIED(
@@ -83,7 +115,7 @@ public enum ApiErrorCode {
     ),
 
     PREFERRED_LOCALE_UNSUPPORTED(
-            "Preferred language must be en or fr-CD."
+            "Preferred language must be fr, en, ln or sw."
     ),
 
     USERNAME_REQUIRED(

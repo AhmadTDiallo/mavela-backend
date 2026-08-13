@@ -248,12 +248,6 @@ public class Customer {
     }
 
     public void startKycApplication() {
-        if (!isProfileComplete()) {
-            throw new IllegalStateException(
-                    "A complete customer profile is required before KYC can start."
-            );
-        }
-
         if (kycStatus != KycStatus.NOT_STARTED) {
             throw new IllegalStateException(
                     "KYC can only start when it has not been started."
@@ -261,6 +255,17 @@ public class Customer {
         }
 
         kycStatus = KycStatus.IN_PROGRESS;
+    }
+
+    public void submitKycApplication() {
+        if (kycStatus != KycStatus.IN_PROGRESS
+                && kycStatus != KycStatus.RESUBMISSION_REQUIRED) {
+            throw new IllegalStateException(
+                    "KYC can only be submitted from an editable state."
+            );
+        }
+
+        kycStatus = KycStatus.SUBMITTED;
     }
 
     public UUID getId() {

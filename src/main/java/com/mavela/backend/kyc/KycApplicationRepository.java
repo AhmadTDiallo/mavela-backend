@@ -13,4 +13,9 @@ public interface KycApplicationRepository
     );
 
     boolean existsByCustomer_Id(UUID customerId);
+
+    Optional<KycApplication> findFirstByCustomer_IdAndStatusOrderByAttemptNumberDesc(
+            UUID customerId,
+            com.mavela.backend.customer.KycStatus status
+    );
 }
