@@ -10,5 +10,39 @@ services:
     volumes:
       - mavela_postgres_data:/var/lib/postgresql
 
+  # Explicitly opt-in local development storage. It is not part of the
+  # default compose stack and is never suitable for production evidence.
+  minio:
+    profiles: ["local-kyc-storage"]
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    environment:
+      MINIO_ROOT_USER: "${MAVELA_MINIO_ROOT_USER:-mavela_local_storage}"
+      MINIO_ROOT_PASSWORD: "${MAVELA_MINIO_ROOT_PASSWORD:-change-this-local-minio-password}"
+    command: server /data --console-address ":9001"
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - mavela_minio_data:/data
+
+  minio-init:
+    profiles: ["local-kyc-storage"]
+    image: minio/mc:RELEASE.2025-03-12T17-29-24Z
+    depends_on:
+      minio:
+        condition: service_started
+    environment:
+      MINIO_ROOT_USER: "${MAVELA_MINIO_ROOT_USER:-mavela_local_storage}"
+      MINIO_ROOT_PASSWORD: "${MAVELA_MINIO_ROOT_PASSWORD:-change-this-local-minio-password}"
+      MAVELA_KYC_STORAGE_BUCKET: "${MAVELA_KYC_STORAGE_BUCKET:-mavela-kyc-local}"
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done
+        mc mb --ignore-existing "local/$${MAVELA_KYC_STORAGE_BUCKET}"
+        mc anonymous set none "local/$${MAVELA_KYC_STORAGE_BUCKET}"
+
 volumes:
   mavela_postgres_data:
+  mavela_minio_data:

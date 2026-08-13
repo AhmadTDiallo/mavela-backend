@@ -1,5 +1,7 @@
 package com.mavela.backend;
 
+import com.mavela.backend.kyc.storage.KycEvidenceStorage;
+import com.mavela.backend.kyc.support.InMemoryKycEvidenceStorage;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
@@ -13,6 +15,11 @@ class TestcontainersConfiguration {
 	@ServiceConnection
 	PostgreSQLContainer postgresContainer() {
 		return new PostgreSQLContainer(DockerImageName.parse("postgres:18.4"));
+	}
+
+	@Bean
+	KycEvidenceStorage kycEvidenceStorage() {
+		return new InMemoryKycEvidenceStorage();
 	}
 
 }
