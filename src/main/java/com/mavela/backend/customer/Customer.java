@@ -268,6 +268,44 @@ public class Customer {
         kycStatus = KycStatus.SUBMITTED;
     }
 
+    /**
+     * Moves a customer-owned KYC lifecycle into a staff review. This is kept
+     * here rather than in a controller so the customer and application states
+     * cannot drift apart.
+     */
+    public void beginKycReview() {
+        requireKycStatus(KycStatus.SUBMITTED);
+        kycStatus = KycStatus.UNDER_REVIEW;
+    }
+
+    public void releaseKycReview() {
+        requireKycStatus(KycStatus.UNDER_REVIEW);
+        kycStatus = KycStatus.SUBMITTED;
+    }
+
+    public void approveKycApplication() {
+        requireKycStatus(KycStatus.UNDER_REVIEW);
+        kycStatus = KycStatus.APPROVED;
+    }
+
+    public void requireKycResubmission() {
+        requireKycStatus(KycStatus.UNDER_REVIEW);
+        kycStatus = KycStatus.RESUBMISSION_REQUIRED;
+    }
+
+    public void rejectKycApplication() {
+        requireKycStatus(KycStatus.UNDER_REVIEW);
+        kycStatus = KycStatus.REJECTED;
+    }
+
+    private void requireKycStatus(KycStatus expectedStatus) {
+        if (kycStatus != expectedStatus) {
+            throw new IllegalStateException(
+                    "KYC transition is not allowed from the current state."
+            );
+        }
+    }
+
     public UUID getId() {
         return id;
     }

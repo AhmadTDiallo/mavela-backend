@@ -6,6 +6,7 @@ import com.mavela.backend.kyc.storage.KycEvidenceStorageException;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.net.URI;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -52,6 +53,26 @@ public final class InMemoryKycEvidenceStorage implements KycEvidenceStorage {
                 object.mimeType(),
                 object.bytes().length,
                 sha256(object.bytes())
+        );
+    }
+
+    @Override
+    public EvidenceStream openRead(ReadRequest request) {
+        StoredObject object = objects.get(request.storageKey());
+        String expectedMimeType = normalizeMimeType(request.expectedMimeType());
+        if (object == null
+                || !object.mimeType().equals(expectedMimeType)
+                || object.bytes().length != request.expectedByteSize()
+                || !matchesMagicBytes(object.bytes(), expectedMimeType)
+                || !isDecodableImage(object.bytes())) {
+            throw new KycEvidenceStorageException();
+        }
+
+        InputStream stream = new ByteArrayInputStream(object.bytes().clone());
+        return new EvidenceStream(
+                expectedMimeType,
+                object.bytes().length,
+                stream
         );
     }
 
