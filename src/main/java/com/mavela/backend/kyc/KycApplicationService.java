@@ -33,6 +33,7 @@ public class KycApplicationService {
     private final KycEvidenceStorage evidenceStorage;
     private final KycEvidenceStorageProperties storageProperties;
     private final KycApplicationReadinessValidator readinessValidator;
+    private final CustomerKycResubmissionService resubmissionService;
 
     public KycApplicationService(
             CustomerRepository customerRepository,
@@ -40,7 +41,8 @@ public class KycApplicationService {
             KycDocumentRepository documentRepository,
             KycEvidenceStorage evidenceStorage,
             KycEvidenceStorageProperties storageProperties,
-            KycApplicationReadinessValidator readinessValidator
+            KycApplicationReadinessValidator readinessValidator,
+            CustomerKycResubmissionService resubmissionService
     ) {
         this.customerRepository = customerRepository;
         this.applicationRepository = applicationRepository;
@@ -48,6 +50,7 @@ public class KycApplicationService {
         this.evidenceStorage = evidenceStorage;
         this.storageProperties = storageProperties;
         this.readinessValidator = readinessValidator;
+        this.resubmissionService = resubmissionService;
     }
 
     /**
@@ -76,7 +79,7 @@ public class KycApplicationService {
         try {
             KycApplication savedApplication = applicationRepository
                     .saveAndFlush(application);
-            return KycApplicationResponse.from(savedApplication);
+            return responseFor(savedApplication);
         } catch (DataIntegrityViolationException exception) {
             /*
              * The unique database constraints guard the application creation
@@ -93,9 +96,7 @@ public class KycApplicationService {
         customerRepository.findById(authenticatedCustomerId)
                 .orElseThrow(this::authenticatedCustomerNotFound);
 
-        return KycApplicationResponse.from(
-                currentApplicationForCustomer(authenticatedCustomerId)
-        );
+        return responseFor(currentApplicationForCustomer(authenticatedCustomerId));
     }
 
     @Transactional
@@ -112,9 +113,7 @@ public class KycApplicationService {
         requireEditable(application);
 
         application.updateDraft(request.currentStep(), request.documentType());
-        return KycApplicationResponse.from(
-                applicationRepository.saveAndFlush(application)
-        );
+        return responseFor(applicationRepository.saveAndFlush(application));
     }
 
     @Transactional
@@ -131,6 +130,11 @@ public class KycApplicationService {
         requireEditable(application);
 
         validateEvidenceRequest(application, request);
+        requireRequestedResubmissionEvidence(
+                application,
+                request.evidenceType(),
+                request.documentSide()
+        );
 
         List<KycDocument> existingSlotDocuments = documentRepository
                 .findAllByApplication_IdAndEvidenceTypeAndDocumentSideAndDeletedAtIsNull(
@@ -261,7 +265,7 @@ public class KycApplicationService {
         application.recordEvidenceChange(now);
         documentRepository.saveAndFlush(evidence);
         applicationRepository.saveAndFlush(application);
-        return KycApplicationResponse.from(application);
+        return responseFor(application);
     }
 
     @Transactional
@@ -274,6 +278,11 @@ public class KycApplicationService {
                 evidenceId
         );
         requireEditable(evidence.getApplication());
+        requireRequestedResubmissionEvidence(
+                evidence.getApplication(),
+                evidence.getEvidenceType(),
+                evidence.getDocumentSide()
+        );
 
         removeEvidenceFromStorage(evidence);
         Instant now = Instant.now();
@@ -295,11 +304,16 @@ public class KycApplicationService {
         );
 
         if (application.getStatus() == KycStatus.SUBMITTED) {
-            return KycApplicationResponse.from(application);
+            return responseFor(application);
         }
 
         if (!application.isEditable()) {
             throw workflowException(ApiErrorCode.KYC_SUBMISSION_NOT_ALLOWED);
+        }
+
+        if (application.getStatus() == KycStatus.RESUBMISSION_REQUIRED
+                && !resubmissionService.areAllCorrectionsComplete(application)) {
+            throw workflowException(ApiErrorCode.KYC_SUBMISSION_INCOMPLETE);
         }
 
         List<KycDocument> documents = documentRepository
@@ -313,9 +327,7 @@ public class KycApplicationService {
         application.submit(now);
         customer.submitKycApplication();
 
-        return KycApplicationResponse.from(
-                applicationRepository.saveAndFlush(application)
-        );
+        return responseFor(applicationRepository.saveAndFlush(application));
     }
 
     private KycApplication currentApplicationForCustomer(UUID customerId) {
@@ -398,6 +410,32 @@ public class KycApplicationService {
                     KycDraftStep.DOCUMENT_FRONT.name()
             );
         }
+    }
+
+    /**
+     * The selected correction slots come from the immutable staff review
+     * event. This prevents a customer in resubmission state from replacing
+     * unrelated, still-valid evidence through the public API.
+     */
+    private void requireRequestedResubmissionEvidence(
+            KycApplication application,
+            KycEvidenceType evidenceType,
+            KycDocumentSide documentSide
+    ) {
+        if (!resubmissionService.permitsEvidenceChange(
+                application,
+                evidenceType,
+                documentSide
+        )) {
+            throw workflowException(ApiErrorCode.KYC_EVIDENCE_UPLOAD_NOT_ALLOWED);
+        }
+    }
+
+    private KycApplicationResponse responseFor(KycApplication application) {
+        return KycApplicationResponse.from(
+                application,
+                resubmissionService.responseFor(application).orElse(null)
+        );
     }
 
     private void requireSubmissionReadiness(

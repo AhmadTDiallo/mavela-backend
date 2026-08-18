@@ -22,6 +22,7 @@ import com.mavela.backend.kyc.KycDocumentType;
 import com.mavela.backend.kyc.KycDraftStep;
 import com.mavela.backend.kyc.KycEvidenceType;
 import com.mavela.backend.kyc.KycEvidenceUploadStatus;
+import com.mavela.backend.kyc.KycResubmissionResponse;
 import com.mavela.backend.kyc.KycWorkflowException;
 import com.mavela.backend.kyc.RequestKycEvidenceUploadRequest;
 import com.mavela.backend.kyc.UpdateKycApplicationDraftRequest;
@@ -32,12 +33,14 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.web.servlet.MockMvc;
 
 import javax.imageio.ImageIO;
 import javax.sql.DataSource;
@@ -48,6 +51,7 @@ import java.io.IOException;
 import java.security.MessageDigest;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -63,10 +67,19 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.hamcrest.Matchers.is;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@AutoConfigureMockMvc
 class KycAdminReviewIntegrationTests {
+
+    @Autowired
+    private MockMvc mockMvc;
 
     @Autowired
     private CustomerRepository customerRepository;
@@ -537,8 +550,8 @@ class KycAdminReviewIntegrationTests {
     }
 
     @Test
-    void resubmissionPreservesValidEvidenceAndReturnsSafeCustomerReason()
-            throws IOException {
+    void resubmissionPersistsExplicitSafeCustomerInstructions()
+            throws Exception {
         KycApplication application = submittedApplication();
         StaffUser reviewer = staff("resubmission-reviewer");
         authenticate(reviewer.getExternalSubject(),
@@ -563,8 +576,8 @@ class KycAdminReviewIntegrationTests {
                                 KycReviewReasonCode.DOCUMENT_UNREADABLE,
                                 "Please upload a clearer front image.",
                                 "Glare obscures the number.",
-                                Set.of(front.getId()),
-                                Set.of()
+                                Set.of(),
+                                Set.of(KycMissingRequirement.DOCUMENT_FRONT)
                         ),
                         UUID.randomUUID()
                 );
@@ -587,6 +600,36 @@ class KycAdminReviewIntegrationTests {
                 customerResponse.resubmission().requiredCorrections());
         assertEquals(List.of(), customerResponse.resubmission()
                 .completedCorrections());
+        assertEquals(
+                List.of(
+                        "customerMessage",
+                        "requiredCorrections",
+                        "completedCorrections"
+                ),
+                Arrays.stream(KycResubmissionResponse.class
+                                .getRecordComponents())
+                        .map(component -> component.getName())
+                        .toList()
+        );
+        mockMvc.perform(get("/api/v1/kyc/applications/current")
+                        .with(jwt().jwt(jwt -> jwt.subject(
+                                customerId(application).toString()
+                        ))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.resubmission.customerMessage",
+                        is("Please upload a clearer front image.")))
+                .andExpect(jsonPath("$.resubmission.requiredCorrections[0]",
+                        is("DOCUMENT_FRONT")))
+                .andExpect(jsonPath("$.resubmission.completedCorrections")
+                        .isArray())
+                .andExpect(jsonPath("$.resubmission.internalNotes")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.resubmission.evidenceIds")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.resubmission.reviewer")
+                        .doesNotExist())
+                .andExpect(jsonPath("$.resubmission.storageKey")
+                        .doesNotExist());
         KycWorkflowException unrequestedSelfie = assertThrows(
                 KycWorkflowException.class,
                 () -> customerKycService.requestEvidenceUpload(
@@ -623,7 +666,61 @@ class KycAdminReviewIntegrationTests {
                 .getLast();
         assertEquals(KycReviewAction.RESUBMISSION_REQUESTED,
                 event.action());
-        assertEquals(List.of(front.getId()), event.evidenceIds());
+        assertEquals(List.of(), event.evidenceIds());
+        assertEquals(List.of(KycMissingRequirement.DOCUMENT_FRONT),
+                event.missingRequirements());
+    }
+
+    @Test
+    void resubmissionCannotBeCreatedWithoutSafeMessageAndCorrections()
+            throws IOException {
+        KycApplication application = submittedApplication();
+        StaffUser reviewer = staff("resubmission-instructions-reviewer");
+        authenticate(reviewer.getExternalSubject(),
+                AdminPermission.KYC_CLAIM,
+                AdminPermission.KYC_DECIDE);
+        AdminKycApplicationDetailResponse claimed = reviewService.claim(
+                reviewer.getExternalSubject(), application.getId(),
+                UUID.randomUUID()
+        );
+
+        KycAdminReviewException missingMessage = assertThrows(
+                KycAdminReviewException.class,
+                () -> reviewService.requestResubmission(
+                        reviewer.getExternalSubject(), application.getId(),
+                        new RequestKycResubmissionRequest(
+                                claimed.version(),
+                                KycReviewReasonCode.DOCUMENT_UNREADABLE,
+                                "   ",
+                                null,
+                                Set.of(),
+                                Set.of(KycMissingRequirement.DOCUMENT_FRONT)
+                        ),
+                        UUID.randomUUID()
+                )
+        );
+        assertEquals(ApiErrorCode.KYC_REVIEW_REASON_REQUIRED,
+                missingMessage.getCode());
+
+        KycAdminReviewException missingCorrections = assertThrows(
+                KycAdminReviewException.class,
+                () -> reviewService.requestResubmission(
+                        reviewer.getExternalSubject(), application.getId(),
+                        new RequestKycResubmissionRequest(
+                                claimed.version(),
+                                KycReviewReasonCode.DOCUMENT_UNREADABLE,
+                                "Please update your document.",
+                                null,
+                                Set.of(),
+                                Set.of()
+                        ),
+                        UUID.randomUUID()
+                )
+        );
+        assertEquals(ApiErrorCode.KYC_REVIEW_REASON_REQUIRED,
+                missingCorrections.getCode());
+        assertEquals(KycStatus.UNDER_REVIEW, applicationStatus(application));
+        assertEquals(1, eventRepository.count());
     }
 
     @Test
