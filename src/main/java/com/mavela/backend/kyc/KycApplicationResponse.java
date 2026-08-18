@@ -47,11 +47,21 @@ public record KycApplicationResponse(
         @Schema(description = "Non-sensitive rejection reason when a decision requires it.")
         String rejectionReason,
 
+        @Schema(description = "Customer-safe correction instructions when resubmission is required.")
+        KycResubmissionResponse resubmission,
+
         @Schema(description = "Customer-safe metadata for draft evidence items.")
         List<KycEvidenceResponse> documents
 ) {
 
     public static KycApplicationResponse from(KycApplication application) {
+        return from(application, null);
+    }
+
+    public static KycApplicationResponse from(
+            KycApplication application,
+            KycResubmissionResponse resubmission
+    ) {
         return new KycApplicationResponse(
                 application.getId(),
                 application.getAttemptNumber(),
@@ -66,6 +76,7 @@ public record KycApplicationResponse(
                 application.getReviewStartedAt(),
                 application.getDecidedAt(),
                 application.getRejectionReason(),
+                resubmission,
                 application.getDocuments()
                         .stream()
                         .filter(KycDocument::isActive)

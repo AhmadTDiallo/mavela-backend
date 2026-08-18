@@ -1,7 +1,7 @@
 package com.mavela.backend.kyc.review;
 
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
@@ -27,13 +27,8 @@ public record RequestKycResubmissionRequest(
         @Size(max = 8, message = "FIELD_INVALID")
         Set<UUID> evidenceIds,
 
+        @NotEmpty(message = "KYC_REVIEW_REASON_REQUIRED")
         @Size(max = 5, message = "FIELD_INVALID")
         Set<KycMissingRequirement> missingRequirements
 ) {
-
-    @AssertTrue(message = "KYC_REVIEW_REASON_REQUIRED")
-    public boolean isAffectedEvidenceOrRequirementIdentified() {
-        return (evidenceIds != null && !evidenceIds.isEmpty())
-                || (missingRequirements != null && !missingRequirements.isEmpty());
-    }
 }

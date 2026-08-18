@@ -316,18 +316,21 @@ public class KycAdminReviewService {
             );
         }
 
+        String customerMessage = requiredCustomerMessage(
+                request.customerMessage()
+        );
         List<KycDocument> evidence = resolveApplicationEvidence(
                 application,
                 request.evidenceIds()
         );
-        List<KycMissingRequirement> missingRequirements = sorted(
+        List<KycMissingRequirement> missingRequirements = requiredCorrections(
                 request.missingRequirements()
         );
         KycStatus previousStatus = application.getStatus();
         try {
             Instant now = Instant.now();
             application.requestResubmission(
-                    trimmed(request.customerMessage()),
+                    customerMessage,
                     now
             );
             application.getCustomer().requireKycResubmission();
@@ -339,7 +342,7 @@ public class KycAdminReviewService {
                     previousStatus,
                     application.getStatus(),
                     request.reasonCode(),
-                    trimmed(request.customerMessage()),
+                    customerMessage,
                     trimmed(request.internalNotes()),
                     evidence,
                     missingRequirements,
@@ -650,6 +653,36 @@ public class KycAdminReviewService {
         return requirements.stream()
                 .sorted(Comparator.comparing(Enum::name))
                 .toList();
+    }
+
+    /**
+     * Bean validation protects the HTTP boundary. These checks also protect
+     * service callers such as batch-free integration code: a transition to
+     * RESUBMISSION_REQUIRED must always leave an immutable, customer-safe
+     * instruction set for the customer API to render.
+     */
+    private String requiredCustomerMessage(String value) {
+        String customerMessage = trimmed(value);
+        if (customerMessage == null) {
+            throw reviewException(
+                    ApiErrorCode.KYC_REVIEW_REASON_REQUIRED,
+                    HttpStatus.UNPROCESSABLE_CONTENT
+            );
+        }
+        return customerMessage;
+    }
+
+    private List<KycMissingRequirement> requiredCorrections(
+            Set<KycMissingRequirement> requirements
+    ) {
+        List<KycMissingRequirement> corrections = sorted(requirements);
+        if (corrections.isEmpty()) {
+            throw reviewException(
+                    ApiErrorCode.KYC_REVIEW_REASON_REQUIRED,
+                    HttpStatus.UNPROCESSABLE_CONTENT
+            );
+        }
+        return corrections;
     }
 
     private void appendEvent(

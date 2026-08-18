@@ -231,12 +231,12 @@ public class KycAdminReviewController {
     @PostMapping("/applications/{applicationId}/request-resubmission")
     @Operation(
             summary = "Request customer KYC resubmission",
-            description = "Requires a non-terminal structured reason, customer-safe message, version, and one or more evidence IDs or missing requirements. Internal notes remain staff-only."
+            description = "Requires a non-terminal structured reason, customer-safe message, version, and at least one explicit customer correction requirement. Internal notes and evidence references remain staff-only."
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Resubmission requested."),
             @ApiResponse(responseCode = "409", description = "Version is stale, reviewer assignment differs, or state changed."),
-            @ApiResponse(responseCode = "422", description = "A structured reason, safe message, and affected item are required.")
+            @ApiResponse(responseCode = "422", description = "A structured reason, safe customer message, and one or more correction requirements are required.")
     })
     public ResponseEntity<AdminKycApplicationDetailResponse> requestResubmission(
             @PathVariable UUID applicationId,
