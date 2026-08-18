@@ -9,6 +9,7 @@ import com.mavela.backend.customer.Customer;
 import com.mavela.backend.customer.CustomerRepository;
 import com.mavela.backend.customer.Gender;
 import com.mavela.backend.customer.KycStatus;
+import com.mavela.backend.error.ApiErrorCode;
 import com.mavela.backend.kyc.CompleteKycEvidenceUploadRequest;
 import com.mavela.backend.kyc.KycApplication;
 import com.mavela.backend.kyc.KycApplicationRepository;
@@ -21,6 +22,7 @@ import com.mavela.backend.kyc.KycDocumentType;
 import com.mavela.backend.kyc.KycDraftStep;
 import com.mavela.backend.kyc.KycEvidenceType;
 import com.mavela.backend.kyc.KycEvidenceUploadStatus;
+import com.mavela.backend.kyc.KycWorkflowException;
 import com.mavela.backend.kyc.RequestKycEvidenceUploadRequest;
 import com.mavela.backend.kyc.UpdateKycApplicationDraftRequest;
 import com.mavela.backend.kyc.storage.KycEvidenceStorage;
@@ -573,9 +575,50 @@ class KycAdminReviewIntegrationTests {
         assertEquals(KycEvidenceUploadStatus.VALIDATED,
                 documentRepository.findById(front.getId()).orElseThrow()
                         .getUploadStatus());
-        assertEquals("Please upload a clearer front image.", customerKycService
-                .getCurrentApplication(customerId(application))
+        var customerResponse = customerKycService.getCurrentApplication(
+                customerId(application)
+        );
+        assertEquals("Please upload a clearer front image.", customerResponse
                 .rejectionReason());
+        assertNotNull(customerResponse.resubmission());
+        assertEquals("Please upload a clearer front image.", customerResponse
+                .resubmission().customerMessage());
+        assertEquals(List.of(KycMissingRequirement.DOCUMENT_FRONT),
+                customerResponse.resubmission().requiredCorrections());
+        assertEquals(List.of(), customerResponse.resubmission()
+                .completedCorrections());
+        KycWorkflowException unrequestedSelfie = assertThrows(
+                KycWorkflowException.class,
+                () -> customerKycService.requestEvidenceUpload(
+                        customerId(application),
+                        new RequestKycEvidenceUploadRequest(
+                                KycEvidenceType.SELFIE,
+                                null,
+                                KycDocumentSide.NOT_APPLICABLE,
+                                KycCaptureMethod.CAMERA_CAPTURE,
+                                "image/png",
+                                1,
+                                "a".repeat(64)
+                        )
+                )
+        );
+        assertEquals(ApiErrorCode.KYC_EVIDENCE_UPLOAD_NOT_ALLOWED,
+                unrequestedSelfie.getCode());
+        completeEvidence(
+                customerId(application),
+                KycEvidenceType.DOCUMENT,
+                KycDocumentType.NATIONAL_ID,
+                KycDocumentSide.FRONT,
+                KycCaptureMethod.CAMERA_CAPTURE,
+                syntheticPng()
+        );
+        var correctedResponse = customerKycService.getCurrentApplication(
+                customerId(application)
+        );
+        assertEquals(List.of(KycMissingRequirement.DOCUMENT_FRONT),
+                correctedResponse.resubmission().completedCorrections());
+        assertEquals(KycStatus.SUBMITTED, customerKycService
+                .submitCurrentApplication(customerId(application)).status());
         AdminKycReviewEventResponse event = resubmission.reviewHistory()
                 .getLast();
         assertEquals(KycReviewAction.RESUBMISSION_REQUESTED,
