@@ -300,6 +300,14 @@ public enum ApiErrorCode {
 
     KYC_EVIDENCE_STREAM_FAILED(
             "The requested KYC evidence is temporarily unavailable."
+    ),
+
+    REWARDS_CUSTOMER_NOT_FOUND(
+            "The authenticated customer rewards record could not be found."
+    ),
+
+    REWARDS_INVALID_PAGINATION(
+            "The requested rewards activity page is invalid."
     );
 
     private final String defaultMessage;
