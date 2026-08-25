@@ -6,6 +6,7 @@ import com.mavela.backend.admin.auth.AdminAuthenticationEntryPoint;
 import com.mavela.backend.admin.auth.AdminAuthenticationUnavailableFilter;
 import com.mavela.backend.admin.auth.AdminJwtAuthenticationConverter;
 import com.mavela.backend.admin.auth.LazyAdminJwtDecoder;
+import com.mavela.backend.admin.rewards.RewardsAdminProperties;
 import jakarta.servlet.DispatcherType;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -24,7 +25,10 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 
 @Configuration
 @EnableMethodSecurity
-@EnableConfigurationProperties(AdminAuthProperties.class)
+@EnableConfigurationProperties({
+        AdminAuthProperties.class,
+        RewardsAdminProperties.class
+})
 public class SecurityConfig {
 
     /**

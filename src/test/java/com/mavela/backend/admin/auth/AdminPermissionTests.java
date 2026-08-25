@@ -40,6 +40,26 @@ class AdminPermissionTests {
     }
 
     @Test
+    void rewardsManagerReceivesOnlyRewardsPermissions() {
+        assertThat(AdminPermission.fromTrustedGroups(
+                List.of("REWARDS_MANAGER")
+        )).containsExactlyInAnyOrder(
+                AdminPermission.REWARDS_READ,
+                AdminPermission.REWARDS_ADJUST
+        );
+    }
+
+    @Test
+    void kycAndPlatformGroupsDoNotImplicitlyReceiveRewardsPermissions() {
+        assertThat(AdminPermission.fromTrustedGroups(List.of(
+                "KYC_REVIEWER", "KYC_SUPERVISOR", "PLATFORM_ADMIN"
+        ))).doesNotContain(
+                AdminPermission.REWARDS_READ,
+                AdminPermission.REWARDS_ADJUST
+        );
+    }
+
+    @Test
     void unknownGroupsGrantNoPermissions() {
         assertThat(AdminPermission.fromTrustedGroups(
                 List.of("KYC_REVIEWER_LOOKALIKE", "CUSTOMER_ADMIN")

@@ -14,6 +14,8 @@ public enum AdminPermission {
     KYC_CLAIM("kyc:claim"),
     KYC_DECIDE("kyc:decide"),
     KYC_SUPERVISE("kyc:supervise"),
+    REWARDS_READ("rewards:read"),
+    REWARDS_ADJUST("rewards:adjust"),
     STAFF_MANAGE("staff:manage");
 
     private static final Set<AdminPermission> REVIEWER_PERMISSIONS = Set.of(
@@ -21,6 +23,12 @@ public enum AdminPermission {
             KYC_CLAIM,
             KYC_DECIDE
     );
+
+    private static final Set<AdminPermission> REWARDS_MANAGER_PERMISSIONS =
+            Set.of(
+                    REWARDS_READ,
+                    REWARDS_ADJUST
+            );
 
     private final String authority;
 
@@ -54,6 +62,9 @@ public enum AdminPermission {
                     permissions.addAll(REVIEWER_PERMISSIONS);
                     permissions.add(KYC_SUPERVISE);
                 }
+                case "REWARDS_MANAGER" -> permissions.addAll(
+                        REWARDS_MANAGER_PERMISSIONS
+                );
                 case "PLATFORM_ADMIN" -> permissions.add(STAFF_MANAGE);
                 default -> {
                     // Unknown groups deliberately grant no permission.
