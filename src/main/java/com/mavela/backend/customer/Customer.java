@@ -23,6 +23,11 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Opaque identifier used by narrowly scoped staff operational routes. */
+    @Column(name = "public_id", nullable = false, unique = true,
+            updatable = false)
+    private UUID publicId;
+
     @Column(length = 20)
     private String username;
 
@@ -134,6 +139,9 @@ public class Customer {
 
     @PrePersist
     void prePersist() {
+        if (publicId == null) {
+            publicId = UUID.randomUUID();
+        }
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
@@ -308,6 +316,10 @@ public class Customer {
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 
     public String getUsername() {

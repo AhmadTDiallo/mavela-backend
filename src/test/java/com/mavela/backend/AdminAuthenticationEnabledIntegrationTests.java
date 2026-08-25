@@ -149,6 +149,72 @@ class AdminAuthenticationEnabledIntegrationTests {
     }
 
     @Test
+    void customerBearerTokenCannotAccessAdminRewardsRoute() throws Exception {
+        Customer customer = customerRepository.save(new Customer(
+                "+243810000092",
+                "customer.rewards.authz@example.test",
+                "Customer",
+                "Rewards",
+                "en"
+        ));
+        String customerAccessToken = accessTokenService.issue(
+                customer,
+                Instant.now()
+        ).value();
+        when(adminJwtDecoder.decode(customerAccessToken))
+                .thenThrow(new BadJwtException("Unknown administrator token"));
+
+        mockMvc.perform(get("/api/v1/admin/rewards/customers")
+                        .param("query", "cu")
+                        .header("Authorization", "Bearer " + customerAccessToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(
+                        "ADMIN_AUTHENTICATION_REQUIRED"
+                ));
+    }
+
+    @Test
+    void rewardsManagerCanReadRewardsButKycReviewerCannot() throws Exception {
+        StaffUser manager = staffUserRepository.saveAndFlush(new StaffUser(
+                "rewards-manager-subject",
+                "rewards.manager@example.test",
+                "Rewards Manager",
+                StaffUserStatus.ACTIVE
+        ));
+        when(adminJwtDecoder.decode("rewards-manager-token"))
+                .thenReturn(adminJwt(
+                        manager.getExternalSubject(),
+                        List.of("REWARDS_MANAGER")
+                ));
+
+        mockMvc.perform(get("/api/v1/admin/rewards/customers")
+                        .param("query", "ad")
+                        .header("Authorization", "Bearer rewards-manager-token"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isArray());
+
+        StaffUser reviewer = staffUserRepository.saveAndFlush(new StaffUser(
+                "rewards-kyc-reviewer-subject",
+                "rewards.reviewer@example.test",
+                "KYC Reviewer",
+                StaffUserStatus.ACTIVE
+        ));
+        when(adminJwtDecoder.decode("kyc-reviewer-token"))
+                .thenReturn(adminJwt(
+                        reviewer.getExternalSubject(),
+                        List.of("KYC_REVIEWER")
+                ));
+
+        mockMvc.perform(get("/api/v1/admin/rewards/customers")
+                        .param("query", "ad")
+                        .header("Authorization", "Bearer kyc-reviewer-token"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(
+                        "ADMIN_PERMISSION_DENIED"
+                ));
+    }
+
+    @Test
     void tokenWithoutTrustedKycGroupIsForbidden() throws Exception {
         when(adminJwtDecoder.decode("platform-admin-token"))
                 .thenReturn(adminJwt(

@@ -32,6 +32,11 @@ public class GemsLedgerEntry {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    /** Route-safe identifier; the database key remains internal. */
+    @Column(name = "public_id", nullable = false, unique = true,
+            updatable = false)
+    private UUID publicId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;
@@ -63,6 +68,15 @@ public class GemsLedgerEntry {
     @Column(name = "actor_reference", length = 120, updatable = false)
     private String actorReference;
 
+    /**
+     * A compensating reversal may reference one original immutable entry.
+     * The database partial unique index prevents more than one reversal for
+     * the same original entry without mutating that original row.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reversal_of_entry_id", updatable = false)
+    private GemsLedgerEntry reversalOfEntry;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -79,7 +93,8 @@ public class GemsLedgerEntry {
             String reference,
             String idempotencyKey,
             RewardAuditActorType actorType,
-            String actorReference
+            String actorReference,
+            GemsLedgerEntry reversalOfEntry
     ) {
         if (amount == 0) {
             throw new IllegalArgumentException("Gems ledger amount cannot be zero.");
@@ -111,6 +126,7 @@ public class GemsLedgerEntry {
         this.idempotencyKey = idempotencyKey;
         this.actorType = actorType;
         this.actorReference = actorReference;
+        this.reversalOfEntry = reversalOfEntry;
     }
 
     /**
@@ -135,7 +151,8 @@ public class GemsLedgerEntry {
                 reference,
                 idempotencyKey,
                 RewardAuditActorType.SYSTEM,
-                "rewards-service"
+                "rewards-service",
+                null
         );
     }
 
@@ -148,7 +165,7 @@ public class GemsLedgerEntry {
                 customer, GemsLedgerEntryType.DAILY_CHECK_IN, amount,
                 GemsLedgerEntryStatus.AVAILABLE, businessDate,
                 "Daily check-in", "daily-check-in:" + businessDate,
-                RewardAuditActorType.CUSTOMER, "self-service"
+                RewardAuditActorType.CUSTOMER, "self-service", null
         );
     }
 
@@ -163,17 +180,69 @@ public class GemsLedgerEntry {
                 GemsLedgerEntryStatus.AVAILABLE, businessDate,
                 "Day " + streakDay + " streak milestone",
                 "streak-milestone:" + businessDate + ":" + streakDay,
-                RewardAuditActorType.SYSTEM, null
+                RewardAuditActorType.SYSTEM, null, null
+        );
+    }
+
+    public static GemsLedgerEntry manualAdjustment(
+            Customer customer,
+            int amount,
+            LocalDate businessDate,
+            String ledgerIdempotencyKey,
+            String staffReference
+    ) {
+        return new GemsLedgerEntry(
+                customer,
+                GemsLedgerEntryType.MANUAL_ADJUSTMENT,
+                amount,
+                GemsLedgerEntryStatus.AVAILABLE,
+                businessDate,
+                "Manual Gems adjustment",
+                ledgerIdempotencyKey,
+                RewardAuditActorType.STAFF,
+                staffReference,
+                null
+        );
+    }
+
+    public static GemsLedgerEntry reversal(
+            Customer customer,
+            GemsLedgerEntry originalEntry,
+            LocalDate businessDate,
+            String ledgerIdempotencyKey,
+            String staffReference
+    ) {
+        if (originalEntry == null || originalEntry.amount == Integer.MIN_VALUE) {
+            throw new IllegalArgumentException("The original ledger entry cannot be reversed.");
+        }
+        return new GemsLedgerEntry(
+                customer,
+                GemsLedgerEntryType.REVERSAL,
+                -originalEntry.amount,
+                GemsLedgerEntryStatus.AVAILABLE,
+                businessDate,
+                "Gems adjustment reversal",
+                ledgerIdempotencyKey,
+                RewardAuditActorType.STAFF,
+                staffReference,
+                originalEntry
         );
     }
 
     @PrePersist
     void prePersist() {
+        if (publicId == null) {
+            publicId = UUID.randomUUID();
+        }
         createdAt = Instant.now();
     }
 
     public UUID getId() {
         return id;
+    }
+
+    public UUID getPublicId() {
+        return publicId;
     }
 
     public GemsLedgerEntryType getEntryType() {
@@ -206,6 +275,10 @@ public class GemsLedgerEntry {
 
     public String getActorReference() {
         return actorReference;
+    }
+
+    public GemsLedgerEntry getReversalOfEntry() {
+        return reversalOfEntry;
     }
 
     public Instant getCreatedAt() {

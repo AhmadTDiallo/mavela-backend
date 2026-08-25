@@ -308,6 +308,38 @@ public enum ApiErrorCode {
 
     REWARDS_INVALID_PAGINATION(
             "The requested rewards activity page is invalid."
+    ),
+
+    REWARDS_ADMIN_INVALID_SEARCH_QUERY(
+            "Enter at least two characters to search customer rewards."
+    ),
+
+    REWARDS_ADMIN_CUSTOMER_NOT_FOUND(
+            "The requested customer rewards record could not be found."
+    ),
+
+    REWARDS_ADMIN_INVALID_ADJUSTMENT(
+            "The requested Gems adjustment is invalid."
+    ),
+
+    REWARDS_ADMIN_ADJUSTMENT_LIMIT_EXCEEDED(
+            "The Gems adjustment exceeds the permitted operational limit."
+    ),
+
+    REWARDS_ADMIN_DUPLICATE_IDEMPOTENCY_KEY(
+            "This rewards operation has already been processed."
+    ),
+
+    REWARDS_ADMIN_REVERSAL_NOT_ALLOWED(
+            "This Gems activity cannot be reversed."
+    ),
+
+    REWARDS_ADMIN_REVERSAL_ALREADY_EXISTS(
+            "This Gems activity has already been reversed."
+    ),
+
+    REWARDS_ADMIN_CONCURRENCY_CONFLICT(
+            "The rewards record changed before the operation could be applied. Refresh and try again."
     );
 
     private final String defaultMessage;

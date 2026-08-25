@@ -215,7 +215,7 @@ public class RewardsService {
         return businessDate(clock);
     }
 
-    static LocalDate businessDate(Clock clock) {
+    public static LocalDate businessDate(Clock clock) {
         return clock.instant().atZone(BUSINESS_ZONE).toLocalDate();
     }
 
