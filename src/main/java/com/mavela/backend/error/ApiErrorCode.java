@@ -340,6 +340,14 @@ public enum ApiErrorCode {
 
     REWARDS_ADMIN_CONCURRENCY_CONFLICT(
             "The rewards record changed before the operation could be applied. Refresh and try again."
+    ),
+
+    SERVICES_CUSTOMER_NOT_FOUND(
+            "The authenticated customer services record could not be found."
+    ),
+
+    SERVICES_CATALOGUE_ITEM_NOT_FOUND(
+            "The requested service is not available in the Mavela catalogue."
     );
 
     private final String defaultMessage;
