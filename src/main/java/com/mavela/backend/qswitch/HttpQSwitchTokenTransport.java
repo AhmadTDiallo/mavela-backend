@@ -4,65 +4,116 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
-import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.StringJoiner;
 
 /**
- * HTTP implementation used only after explicit QSwitch OAuth contract
- * configuration. It purposefully does not log responses, credentials, or
- * access tokens.
+ * HTTP implementation of the confirmed QSwitch staging application-token
+ * contract. It purposefully does not log responses, credentials, or tokens.
  */
 public class HttpQSwitchTokenTransport implements QSwitchTokenTransport {
 
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final HttpClient httpClient;
 
     public HttpQSwitchTokenTransport(ObjectMapper objectMapper, Clock clock) {
+        this(objectMapper, clock, null);
+    }
+
+    HttpQSwitchTokenTransport(
+            ObjectMapper objectMapper,
+            Clock clock,
+            HttpClient httpClient
+    ) {
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.httpClient = httpClient;
     }
 
     @Override
     public QSwitchAccessToken requestToken(QSwitchProperties properties) {
-        if (!properties.isLiveModeConfigured()) {
-            throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE);
+        QSwitchTokenPair token = acquireInitialToken(properties);
+        return new QSwitchAccessToken(token.accessToken(), token.expiresAt());
+    }
+
+    @Override
+    public QSwitchTokenPair acquireInitialToken(QSwitchProperties properties) {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("app_token", properties.getAppToken());
+        body.put("app_secret", properties.getAppSecret());
+        return exchange(
+                properties,
+                properties.initialTokenEndpoint(),
+                body,
+                null
+        );
+    }
+
+    @Override
+    public QSwitchTokenPair refreshToken(
+            QSwitchProperties properties,
+            QSwitchTokenPair currentToken
+    ) {
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("grant_type", "refresh_token");
+        body.put("app_token", properties.getAppToken());
+        body.put("refresh_token", currentToken.refreshToken());
+        return exchange(
+                properties,
+                properties.refreshTokenEndpoint(),
+                body,
+                currentToken.refreshToken()
+        );
+    }
+
+    private QSwitchTokenPair exchange(
+            QSwitchProperties properties,
+            java.net.URI endpoint,
+            Map<String, String> body,
+            String existingRefreshToken
+    ) {
+        if (!properties.isStagingAuthenticationConfigured()) {
+            throw new QSwitchIntegrationException(
+                    QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE
+            );
         }
 
-        var fields = requestFields(properties);
-        var request = HttpRequest.newBuilder(properties.getBaseUrl().resolve(properties.getTokenPath()))
+        HttpRequest request = HttpRequest.newBuilder(endpoint)
                 .timeout(properties.getReadTimeout())
                 .header("Accept", "application/json")
-                .header("Content-Type", contentType(properties.getTokenRequestEncoding()))
-                .POST(HttpRequest.BodyPublishers.ofString(requestBody(properties, fields), StandardCharsets.UTF_8))
-                .build();
-        var client = HttpClient.newBuilder()
-                .connectTimeout(properties.getConnectTimeout())
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofString(
+                        serialize(body),
+                        StandardCharsets.UTF_8
+                ))
                 .build();
 
         try {
-            var response = client.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
-            return parseSuccessfulResponse(response, properties);
+            HttpResponse<String> response = clientFor(properties).send(
+                    request,
+                    HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
+            );
+            return parseTokenResponse(response, properties, existingRefreshToken);
         } catch (java.net.http.HttpTimeoutException exception) {
             throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.TIMEOUT, exception);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.PROVIDER_UNAVAILABLE, exception);
+            throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.TIMEOUT, exception);
         } catch (IOException exception) {
             throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.PROVIDER_UNAVAILABLE, exception);
         }
     }
 
-    QSwitchAccessToken parseSuccessfulResponse(
+    QSwitchTokenPair parseTokenResponse(
             HttpResponse<String> response,
-            QSwitchProperties properties
+            QSwitchProperties properties,
+            String existingRefreshToken
     ) {
         if (response.statusCode() == 401 || response.statusCode() == 403) {
             throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.AUTHENTICATION_FAILED);
@@ -79,63 +130,50 @@ public class HttpQSwitchTokenTransport implements QSwitchTokenTransport {
 
         try {
             JsonNode body = objectMapper.readTree(response.body());
-            var token = body.path(properties.getTokenAccessTokenField()).asText();
-            var expiresInSeconds = body.path(properties.getTokenExpiresInField()).asLong(-1);
-            if (token.isBlank() || expiresInSeconds <= 0) {
+            String accessToken = text(body, "access_token");
+            String refreshToken = text(body, "refresh_token");
+            if (refreshToken == null && existingRefreshToken != null) {
+                refreshToken = existingRefreshToken;
+            }
+            if (accessToken == null || refreshToken == null) {
                 throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INVALID_RESPONSE);
             }
-            return new QSwitchAccessToken(token, clock.instant().plusSeconds(expiresInSeconds));
+            return new QSwitchTokenPair(
+                    accessToken,
+                    refreshToken,
+                    clock.instant().plus(properties.getStagingTokenLifetime())
+            );
         } catch (IOException exception) {
             throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INVALID_RESPONSE, exception);
         }
     }
 
-    private Map<String, String> requestFields(QSwitchProperties properties) {
-        Map<String, String> fields = new LinkedHashMap<>();
-        fields.put(properties.getTokenGrantTypeField(), properties.getTokenGrantTypeValue());
-        fields.put(properties.getTokenClientIdField(), properties.getClientId());
-        fields.put(properties.getTokenClientSecretField(), properties.getClientSecret());
-        if (hasText(properties.getScopes())) {
-            if (!hasText(properties.getTokenScopeField())) {
-                throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE);
-            }
-            fields.put(properties.getTokenScopeField(), properties.getScopes());
+    private HttpClient clientFor(QSwitchProperties properties) {
+        if (httpClient != null) {
+            return httpClient;
         }
-        return fields;
+        return HttpClient.newBuilder()
+                .connectTimeout(properties.getConnectTimeout())
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build();
     }
 
-    private String requestBody(QSwitchProperties properties, Map<String, String> fields) {
+    private String serialize(Map<String, String> body) {
         try {
-            return switch (properties.getTokenRequestEncoding()) {
-                case FORM_URLENCODED_CLIENT_CREDENTIALS, FORM_CLIENT_CREDENTIALS -> formUrlEncode(fields);
-                case JSON_CLIENT_CREDENTIALS -> objectMapper.writeValueAsString(fields);
-                case BASIC_CLIENT_CREDENTIALS, UNCONFIRMED -> throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE);
-            };
+            return objectMapper.writeValueAsString(body);
         } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
-            throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INVALID_RESPONSE, exception);
+            throw new QSwitchIntegrationException(
+                    QSwitchIntegrationErrorCode.INVALID_RESPONSE,
+                    exception
+            );
         }
     }
 
-    private String contentType(QSwitchTokenRequestEncoding encoding) {
-        return switch (encoding) {
-            case FORM_URLENCODED_CLIENT_CREDENTIALS, FORM_CLIENT_CREDENTIALS -> "application/x-www-form-urlencoded";
-            case JSON_CLIENT_CREDENTIALS -> "application/json";
-            case BASIC_CLIENT_CREDENTIALS, UNCONFIRMED -> throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE);
-        };
-    }
-
-    private String formUrlEncode(Map<String, String> fields) {
-        var joiner = new StringJoiner("&");
-        fields.forEach((key, value) -> joiner.add(
-                URLEncoder.encode(key, StandardCharsets.UTF_8)
-                        + "="
-                        + URLEncoder.encode(value, StandardCharsets.UTF_8)
-        ));
-        return joiner.toString();
-    }
-
-    private boolean hasText(String value) {
-        return value != null && !value.isBlank();
+    private String text(JsonNode body, String fieldName) {
+        JsonNode value = body.path(fieldName);
+        return value.isTextual() && !value.asText().isBlank()
+                ? value.asText()
+                : null;
     }
 
     private java.time.Duration retryAfter(HttpResponse<String> response) {

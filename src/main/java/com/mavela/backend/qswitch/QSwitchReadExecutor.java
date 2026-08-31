@@ -9,19 +9,19 @@ import java.time.Duration;
  */
 public final class QSwitchReadExecutor {
 
-    private final QSwitchOAuthTokenClient tokenClient;
+    private final QSwitchStagingTokenManager tokenClient;
     private final QSwitchReadRetryPolicy retryPolicy;
     private final Sleeper sleeper;
 
     public QSwitchReadExecutor(
-            QSwitchOAuthTokenClient tokenClient,
+            QSwitchStagingTokenManager tokenClient,
             QSwitchReadRetryPolicy retryPolicy
     ) {
         this(tokenClient, retryPolicy, duration -> Thread.sleep(duration.toMillis()));
     }
 
     QSwitchReadExecutor(
-            QSwitchOAuthTokenClient tokenClient,
+            QSwitchStagingTokenManager tokenClient,
             QSwitchReadRetryPolicy retryPolicy,
             Sleeper sleeper
     ) {

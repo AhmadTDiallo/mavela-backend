@@ -10,28 +10,36 @@ import static org.assertj.core.api.Assertions.assertThat;
 class QSwitchPropertiesTests {
 
     @Test
-    void disabledConfigurationFailsClosedEvenWhenAllLiveValuesArePresent() {
-        var properties = completeLiveProperties();
+    void disabledConfigurationFailsClosedEvenWhenAllStagingValuesArePresent() {
+        var properties = completeStagingProperties();
         properties.setEnabled(false);
 
-        assertThat(properties.isLiveModeConfigured()).isFalse();
+        assertThat(properties.isStagingAuthenticationConfigured()).isFalse();
         assertThat(properties.isMockEnabled()).isFalse();
     }
 
     @Test
-    void incompleteLiveConfigurationFailsClosed() {
-        var properties = completeLiveProperties();
-        properties.setTokenRequestEncoding(QSwitchTokenRequestEncoding.UNCONFIRMED);
+    void enabledStagingConfigurationRequiresTheSeparatelySuppliedSecret() {
+        var properties = completeStagingProperties();
+        properties.setAppSecret(" ");
 
-        assertThat(properties.isLiveModeConfigured()).isFalse();
+        assertThat(properties.isStagingAuthenticationConfigured()).isFalse();
     }
 
     @Test
-    void liveConfigurationRequiresHttps() {
-        var properties = completeLiveProperties();
+    void stagingConfigurationRequiresHttps() {
+        var properties = completeStagingProperties();
         properties.setBaseUrl(URI.create("http://localhost:8080"));
 
-        assertThat(properties.isLiveModeConfigured()).isFalse();
+        assertThat(properties.isStagingAuthenticationConfigured()).isFalse();
+    }
+
+    @Test
+    void stagingConfigurationIsRestrictedToTheProvisionedDrcRegion() {
+        var properties = completeStagingProperties();
+        properties.setCountryCode("KEN");
+
+        assertThat(properties.isStagingAuthenticationConfigured()).isFalse();
     }
 
     @Test
@@ -41,24 +49,19 @@ class QSwitchPropertiesTests {
         properties.setMode(QSwitchMode.MOCK);
 
         assertThat(properties.isMockEnabled()).isTrue();
-        assertThat(properties.isLiveModeConfigured()).isFalse();
+        assertThat(properties.isStagingAuthenticationConfigured()).isFalse();
     }
 
-    static QSwitchProperties completeLiveProperties() {
+    static QSwitchProperties completeStagingProperties() {
         var properties = new QSwitchProperties();
         properties.setEnabled(true);
         properties.setMode(QSwitchMode.QSWITCH);
         properties.setBaseUrl(URI.create("https://qswitch.test"));
-        properties.setTokenPath("/api/oauth/token");
-        properties.setClientId("test-client");
-        properties.setClientSecret("test-secret");
-        properties.setTokenRequestEncoding(QSwitchTokenRequestEncoding.FORM_URLENCODED_CLIENT_CREDENTIALS);
-        properties.setTokenGrantTypeField("grant_type");
-        properties.setTokenGrantTypeValue("client_credentials");
-        properties.setTokenClientIdField("client_id");
-        properties.setTokenClientSecretField("client_secret");
-        properties.setTokenAccessTokenField("access_token");
-        properties.setTokenExpiresInField("expires_in");
+        properties.setAppId("test-app-id");
+        properties.setAppToken("test-app-token");
+        properties.setAppSecret("test-app-secret");
+        properties.setFintechId("test-fintech-id");
+        properties.setCountryCode("DRC");
         properties.setConnectTimeout(Duration.ofSeconds(1));
         properties.setReadTimeout(Duration.ofSeconds(1));
         properties.setTokenRefreshSafetyWindow(Duration.ofSeconds(30));

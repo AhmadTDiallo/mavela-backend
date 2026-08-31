@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class QSwitchReadRetryPolicyTests {
 
-    private final QSwitchReadRetryPolicy policy = new QSwitchReadRetryPolicy(QSwitchPropertiesTests.completeLiveProperties());
+    private final QSwitchReadRetryPolicy policy = new QSwitchReadRetryPolicy(QSwitchPropertiesTests.completeStagingProperties());
 
     @Test
     void retriesOnlyTransientReadFailuresWithinTheConfiguredBound() {

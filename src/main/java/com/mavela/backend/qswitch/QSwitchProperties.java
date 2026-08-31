@@ -6,38 +6,34 @@ import java.net.URI;
 import java.time.Duration;
 
 /**
- * QSwitch configuration is intentionally conservative: mock mode is opt-in,
- * and live OAuth cannot be considered ready without an explicitly confirmed
- * request contract. Credentials are supplied only by environment variables or
- * deployment secret management.
+ * Configuration for the QSwitch staging authentication boundary.
+ *
+ * <p>The binding intentionally contains no default credentials. A partially
+ * configured enabled integration remains unavailable and makes no outbound
+ * request. This lets ordinary local development start safely while preserving
+ * a useful internal diagnostic state.</p>
  */
 @ConfigurationProperties(prefix = "mavela.qswitch")
 public class QSwitchProperties {
 
+    private static final Duration STAGING_TOKEN_LIFETIME = Duration.ofHours(240);
+
     private boolean enabled;
-    private QSwitchMode mode = QSwitchMode.MOCK;
+    private QSwitchMode mode = QSwitchMode.QSWITCH;
     private URI baseUrl;
-    private String tokenPath = "/api/oauth/token";
-    private String clientId;
-    private String clientSecret;
+    private String appId;
+    private String appToken;
+    private String appSecret;
+    private String fintechId;
+    private String countryCode = "DRC";
     private Duration connectTimeout = Duration.ofSeconds(3);
     private Duration readTimeout = Duration.ofSeconds(5);
-    private Duration tokenRefreshSafetyWindow = Duration.ofSeconds(30);
+    private Duration tokenRefreshSafetyWindow = Duration.ofMinutes(5);
     private int maxReadRetries = 1;
     private Duration initialRetryDelay = Duration.ofMillis(250);
     private Duration maxRetryDelay = Duration.ofSeconds(2);
     private int rateLimitPerMinute = 100;
     private int rateLimitBurst = 20;
-    private QSwitchTokenRequestEncoding tokenRequestEncoding =
-            QSwitchTokenRequestEncoding.UNCONFIRMED;
-    private String tokenGrantTypeField;
-    private String tokenGrantTypeValue;
-    private String tokenClientIdField;
-    private String tokenClientSecretField;
-    private String tokenScopeField;
-    private String scopes;
-    private String tokenAccessTokenField;
-    private String tokenExpiresInField;
 
     public boolean isEnabled() {
         return enabled;
@@ -47,12 +43,16 @@ public class QSwitchProperties {
         this.enabled = enabled;
     }
 
+    /**
+     * Retained only for the existing local synthetic account-provider tests.
+     * It does not alter staging token authentication.
+     */
     public QSwitchMode getMode() {
         return mode;
     }
 
     public void setMode(QSwitchMode mode) {
-        this.mode = mode == null ? QSwitchMode.MOCK : mode;
+        this.mode = mode == null ? QSwitchMode.QSWITCH : mode;
     }
 
     public URI getBaseUrl() {
@@ -63,28 +63,44 @@ public class QSwitchProperties {
         this.baseUrl = baseUrl;
     }
 
-    public String getTokenPath() {
-        return tokenPath;
+    public String getAppId() {
+        return appId;
     }
 
-    public void setTokenPath(String tokenPath) {
-        this.tokenPath = tokenPath;
+    public void setAppId(String appId) {
+        this.appId = appId;
     }
 
-    public String getClientId() {
-        return clientId;
+    public String getAppToken() {
+        return appToken;
     }
 
-    public void setClientId(String clientId) {
-        this.clientId = clientId;
+    public void setAppToken(String appToken) {
+        this.appToken = appToken;
     }
 
-    public String getClientSecret() {
-        return clientSecret;
+    public String getAppSecret() {
+        return appSecret;
     }
 
-    public void setClientSecret(String clientSecret) {
-        this.clientSecret = clientSecret;
+    public void setAppSecret(String appSecret) {
+        this.appSecret = appSecret;
+    }
+
+    public String getFintechId() {
+        return fintechId;
+    }
+
+    public void setFintechId(String fintechId) {
+        this.fintechId = fintechId;
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public void setCountryCode(String countryCode) {
+        this.countryCode = countryCode;
     }
 
     public Duration getConnectTimeout() {
@@ -107,9 +123,7 @@ public class QSwitchProperties {
         return tokenRefreshSafetyWindow;
     }
 
-    public void setTokenRefreshSafetyWindow(
-            Duration tokenRefreshSafetyWindow
-    ) {
+    public void setTokenRefreshSafetyWindow(Duration tokenRefreshSafetyWindow) {
         this.tokenRefreshSafetyWindow = tokenRefreshSafetyWindow;
     }
 
@@ -133,7 +147,6 @@ public class QSwitchProperties {
         this.initialRetryDelay = initialRetryDelay;
     }
 
-    /** Spring binding alias for mavela.qswitch.retry-initial-backoff. */
     public void setRetryInitialBackoff(Duration retryInitialBackoff) {
         this.initialRetryDelay = retryInitialBackoff;
     }
@@ -150,7 +163,6 @@ public class QSwitchProperties {
         this.maxRetryDelay = maxRetryDelay;
     }
 
-    /** Spring binding alias for mavela.qswitch.retry-max-backoff. */
     public void setRetryMaxBackoff(Duration retryMaxBackoff) {
         this.maxRetryDelay = retryMaxBackoff;
     }
@@ -171,92 +183,8 @@ public class QSwitchProperties {
         this.rateLimitBurst = rateLimitBurst;
     }
 
-    public QSwitchTokenRequestEncoding getTokenRequestEncoding() {
-        return tokenRequestEncoding;
-    }
-
-    public void setTokenRequestEncoding(
-            QSwitchTokenRequestEncoding tokenRequestEncoding
-    ) {
-        this.tokenRequestEncoding = tokenRequestEncoding == null
-                ? QSwitchTokenRequestEncoding.UNCONFIRMED
-                : tokenRequestEncoding;
-    }
-
-    public String getTokenGrantTypeField() {
-        return tokenGrantTypeField;
-    }
-
-    public void setTokenGrantTypeField(String tokenGrantTypeField) {
-        this.tokenGrantTypeField = tokenGrantTypeField;
-    }
-
-    public String getTokenGrantTypeValue() {
-        return tokenGrantTypeValue;
-    }
-
-    /** @deprecated Use {@link #getTokenGrantTypeValue()}. */
-    @Deprecated
-    public String getTokenGrantType() {
-        return tokenGrantTypeValue;
-    }
-
-    public void setTokenGrantTypeValue(String tokenGrantTypeValue) {
-        this.tokenGrantTypeValue = tokenGrantTypeValue;
-    }
-
-    public String getTokenClientIdField() {
-        return tokenClientIdField;
-    }
-
-    public void setTokenClientIdField(String tokenClientIdField) {
-        this.tokenClientIdField = tokenClientIdField;
-    }
-
-    public String getTokenClientSecretField() {
-        return tokenClientSecretField;
-    }
-
-    public void setTokenClientSecretField(String tokenClientSecretField) {
-        this.tokenClientSecretField = tokenClientSecretField;
-    }
-
-    public String getTokenScopeField() {
-        return tokenScopeField;
-    }
-
-    public void setTokenScopeField(String tokenScopeField) {
-        this.tokenScopeField = tokenScopeField;
-    }
-
-    public String getScopes() {
-        return scopes;
-    }
-
-    /** @deprecated Use {@link #getScopes()}. */
-    @Deprecated
-    public String getTokenScope() {
-        return scopes;
-    }
-
-    public void setScopes(String scopes) {
-        this.scopes = scopes;
-    }
-
-    public String getTokenAccessTokenField() {
-        return tokenAccessTokenField;
-    }
-
-    public void setTokenAccessTokenField(String tokenAccessTokenField) {
-        this.tokenAccessTokenField = tokenAccessTokenField;
-    }
-
-    public String getTokenExpiresInField() {
-        return tokenExpiresInField;
-    }
-
-    public void setTokenExpiresInField(String tokenExpiresInField) {
-        this.tokenExpiresInField = tokenExpiresInField;
+    public Duration getStagingTokenLifetime() {
+        return STAGING_TOKEN_LIFETIME;
     }
 
     public boolean isMockModeEnabled() {
@@ -268,80 +196,91 @@ public class QSwitchProperties {
     }
 
     /**
-     * Validates only the known OAuth configuration. The authoritative QSwitch
-     * account, balance, and history endpoint contract remains intentionally
-     * unimplemented until it is supplied by QSwitch.
+     * Returns whether an enabled QSwitch integration is safe to contact.
+     * Validation remains local and intentionally does not reveal which
+     * sensitive credential is missing.
      */
-    public boolean isLiveOAuthConfigurationComplete() {
+    public boolean isStagingAuthenticationConfigured() {
         return enabled
-                && mode == QSwitchMode.QSWITCH
                 && isValidHttpsBaseUrl(baseUrl)
-                && isTokenPathValid()
-                && hasText(clientId)
-                && hasText(clientSecret)
-                && isSupportedTokenRequestEncoding()
-                && hasText(tokenGrantTypeField)
-                && hasText(tokenGrantTypeValue)
-                && hasText(tokenClientIdField)
-                && hasText(tokenClientSecretField)
-                && (!hasText(scopes) || hasText(tokenScopeField))
-                && hasText(tokenAccessTokenField)
-                && hasText(tokenExpiresInField)
-                && connectTimeout != null
-                && !connectTimeout.isNegative()
-                && !connectTimeout.isZero()
-                && readTimeout != null
-                && !readTimeout.isNegative()
-                && !readTimeout.isZero()
-                && tokenRefreshSafetyWindow != null
-                && !tokenRefreshSafetyWindow.isNegative()
+                && hasText(appId)
+                && hasText(appToken)
+                && hasText(appSecret)
+                && hasText(fintechId)
+                && isValidStagingCountryCode(countryCode)
+                && isPositive(connectTimeout)
+                && isPositive(readTimeout)
+                && isNonNegative(tokenRefreshSafetyWindow)
                 && maxReadRetries >= 0
-                && initialRetryDelay != null
-                && !initialRetryDelay.isNegative()
-                && maxRetryDelay != null
-                && !maxRetryDelay.isNegative()
-                && !maxRetryDelay.isZero()
+                && isNonNegative(initialRetryDelay)
+                && isPositive(maxRetryDelay)
                 && rateLimitPerMinute > 0
                 && rateLimitBurst > 0;
     }
 
+    /** @deprecated Use {@link #isStagingAuthenticationConfigured()}. */
+    @Deprecated
     public boolean isLiveModeConfigured() {
-        return isLiveOAuthConfigurationComplete();
+        return isStagingAuthenticationConfigured();
     }
 
-    URI tokenEndpoint() {
-        if (!isLiveOAuthConfigurationComplete()) {
+    URI initialTokenEndpoint() {
+        requireStagingAuthenticationConfiguration();
+        return baseUrl.resolve("/epp2/fintech/auth/token");
+    }
+
+    URI refreshTokenEndpoint() {
+        requireStagingAuthenticationConfiguration();
+        return baseUrl.resolve("/epp2/fintech/auth/token/refresh");
+    }
+
+    URI apiEndpoint(String path) {
+        requireStagingAuthenticationConfiguration();
+        if (!isSafeAbsolutePath(path)) {
             throw new QSwitchIntegrationException(
                     QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE
             );
         }
-
-        return baseUrl.resolve(tokenPath);
+        return baseUrl.resolve(path);
     }
 
-    private boolean isTokenPathValid() {
-        return hasText(tokenPath)
-                && tokenPath.startsWith("/")
-                && !tokenPath.startsWith("//")
-                && !tokenPath.contains("://")
-                && !tokenPath.contains("?")
-                && !tokenPath.contains("#");
+    private void requireStagingAuthenticationConfiguration() {
+        if (!isStagingAuthenticationConfigured()) {
+            throw new QSwitchIntegrationException(
+                    QSwitchIntegrationErrorCode.INTEGRATION_UNAVAILABLE
+            );
+        }
     }
 
-    private boolean isSupportedTokenRequestEncoding() {
-        return tokenRequestEncoding == QSwitchTokenRequestEncoding.FORM_URLENCODED_CLIENT_CREDENTIALS
-                || tokenRequestEncoding == QSwitchTokenRequestEncoding.JSON_CLIENT_CREDENTIALS;
+    private boolean isSafeAbsolutePath(String path) {
+        return hasText(path)
+                && path.startsWith("/")
+                && !path.startsWith("//")
+                && !path.contains("://")
+                && !path.contains("?")
+                && !path.contains("#");
     }
 
     private boolean isValidHttpsBaseUrl(URI value) {
         return value != null
                 && value.isAbsolute()
                 && "https".equalsIgnoreCase(value.getScheme())
-                && value.getHost() != null
-                && !value.getHost().isBlank()
+                && hasText(value.getHost())
                 && value.getUserInfo() == null
                 && value.getQuery() == null
                 && value.getFragment() == null;
+    }
+
+    private boolean isValidStagingCountryCode(String value) {
+        return "DRC".equals(value);
+    }
+
+    private boolean isPositive(Duration value) {
+        return value != null && !value.isNegative() && !value.isZero();
+    }
+
+    private boolean isNonNegative(Duration value) {
+        return value != null && !value.isNegative();
     }
 
     private boolean hasText(String value) {
