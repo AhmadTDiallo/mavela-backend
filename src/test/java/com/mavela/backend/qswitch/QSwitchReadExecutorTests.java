@@ -59,14 +59,25 @@ class QSwitchReadExecutorTests {
             AtomicInteger tokenRequests,
             List<java.time.Duration> slept
     ) {
-        var properties = QSwitchPropertiesTests.completeLiveProperties();
+        var properties = QSwitchPropertiesTests.completeStagingProperties();
         var clock = Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC);
-        var tokenClient = new QSwitchOAuthTokenClient(
+        var tokenClient = new QSwitchStagingTokenManager(
                 properties,
-                ignored -> new QSwitchAccessToken(
-                        "token-" + tokenRequests.incrementAndGet(),
-                        clock.instant().plusSeconds(120)
-                ),
+                new QSwitchTokenTransport() {
+                    @Override
+                    public QSwitchAccessToken requestToken(QSwitchProperties ignored) {
+                        throw new AssertionError("legacy token path must not be used");
+                    }
+
+                    @Override
+                    public QSwitchTokenPair acquireInitialToken(QSwitchProperties ignored) {
+                        return new QSwitchTokenPair(
+                                "token-" + tokenRequests.incrementAndGet(),
+                                "refresh-token",
+                                clock.instant().plusSeconds(120)
+                        );
+                    }
+                },
                 clock
         );
         return new QSwitchReadExecutor(

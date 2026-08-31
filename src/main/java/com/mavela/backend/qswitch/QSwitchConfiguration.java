@@ -30,12 +30,27 @@ public class QSwitchConfiguration {
     }
 
     @Bean
-    QSwitchOAuthTokenClient qSwitchOAuthTokenClient(
+    QSwitchStagingTokenManager qSwitchStagingTokenManager(
             QSwitchProperties properties,
             QSwitchTokenTransport transport,
             Clock qSwitchClock
     ) {
-        return new QSwitchOAuthTokenClient(properties, transport, qSwitchClock);
+        return new QSwitchStagingTokenManager(properties, transport, qSwitchClock);
+    }
+
+    @Bean
+    QSwitchAuthenticatedClient qSwitchAuthenticatedClient(
+            QSwitchProperties properties,
+            QSwitchStagingTokenManager tokenManager
+    ) {
+        return new QSwitchAuthenticatedClient(properties, tokenManager);
+    }
+
+    @Bean
+    QSwitchAuthenticationDiagnostic qSwitchAuthenticationDiagnostic(
+            QSwitchStagingTokenManager tokenManager
+    ) {
+        return new QSwitchAuthenticationDiagnostic(tokenManager);
     }
 
     @Bean
@@ -45,7 +60,7 @@ public class QSwitchConfiguration {
 
     @Bean
     QSwitchReadExecutor qSwitchReadExecutor(
-            QSwitchOAuthTokenClient tokenClient,
+            QSwitchStagingTokenManager tokenClient,
             QSwitchReadRetryPolicy retryPolicy
     ) {
         return new QSwitchReadExecutor(tokenClient, retryPolicy);
@@ -56,7 +71,7 @@ public class QSwitchConfiguration {
         if (properties.isMockEnabled()) {
             return new MockQSwitchAccountProvider();
         }
-        if (properties.isLiveModeConfigured()) {
+        if (properties.isStagingAuthenticationConfigured()) {
             return new QSwitchAccountProviderAdapter();
         }
         return new UnavailableQSwitchAccountProvider();

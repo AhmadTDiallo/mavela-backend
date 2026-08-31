@@ -31,9 +31,10 @@ class HttpQSwitchTokenTransportTests {
     void mapsAuthenticationFailureWithoutExposingTheProviderBody() {
         var response = response(401, "{\"error_description\":\"client-secret-value\"}", Map.of());
 
-        assertThatThrownBy(() -> transport.parseSuccessfulResponse(
+        assertThatThrownBy(() -> transport.parseTokenResponse(
                 response,
-                QSwitchPropertiesTests.completeLiveProperties()
+                QSwitchPropertiesTests.completeStagingProperties(),
+                null
         ))
                 .isInstanceOf(QSwitchIntegrationException.class)
                 .satisfies(exception -> {
@@ -53,9 +54,10 @@ class HttpQSwitchTokenTransportTests {
                 "X-RateLimit-Remaining", List.of("0")
         ));
 
-        assertThatThrownBy(() -> transport.parseSuccessfulResponse(
+        assertThatThrownBy(() -> transport.parseTokenResponse(
                 response,
-                QSwitchPropertiesTests.completeLiveProperties()
+                QSwitchPropertiesTests.completeStagingProperties(),
+                null
         ))
                 .isInstanceOf(QSwitchIntegrationException.class)
                 .satisfies(exception -> {
@@ -68,17 +70,18 @@ class HttpQSwitchTokenTransportTests {
                             .doesNotContain("not for customers");
                 });
 
-        var policy = new QSwitchReadRetryPolicy(QSwitchPropertiesTests.completeLiveProperties());
+        var policy = new QSwitchReadRetryPolicy(QSwitchPropertiesTests.completeStagingProperties());
         assertThat(policy.backoffFor(1, Duration.ofSeconds(10))).isEqualTo(Duration.ofSeconds(1));
     }
 
     @Test
-    void rejectsAResponseWithoutTheConfiguredTokenFields() {
+    void rejectsAResponseWithoutTheRequiredRefreshToken() {
         var response = response(200, "{\"access_token\":\"sensitive-token\"}", Map.of());
 
-        assertThatThrownBy(() -> transport.parseSuccessfulResponse(
+        assertThatThrownBy(() -> transport.parseTokenResponse(
                 response,
-                QSwitchPropertiesTests.completeLiveProperties()
+                QSwitchPropertiesTests.completeStagingProperties(),
+                null
         ))
                 .isInstanceOf(QSwitchIntegrationException.class)
                 .satisfies(exception -> {
