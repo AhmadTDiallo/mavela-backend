@@ -348,6 +348,30 @@ public enum ApiErrorCode {
 
     SERVICES_CATALOGUE_ITEM_NOT_FOUND(
             "The requested service is not available in the Mavela catalogue."
+    ),
+
+    SERVICES_ADMIN_CATALOGUE_ITEM_NOT_FOUND(
+            "The requested service catalogue entry could not be found."
+    ),
+
+    SERVICE_PROVIDER_NOT_READY(
+            "This service cannot be made available because no provider is ready."
+    ),
+
+    SERVICES_ADMIN_INVALID_DISPLAY_ORDER(
+            "The requested service display order is invalid."
+    ),
+
+    SERVICES_ADMIN_IDEMPOTENCY_KEY_REUSED(
+            "This idempotency key was already used for a different catalogue change."
+    ),
+
+    SERVICES_ADMIN_CONCURRENCY_CONFLICT(
+            "The service catalogue changed before this update could be applied. Refresh and try again."
+    ),
+
+    SERVICES_ADMIN_INVALID_PAGINATION(
+            "The requested services audit page is invalid."
     );
 
     private final String defaultMessage;

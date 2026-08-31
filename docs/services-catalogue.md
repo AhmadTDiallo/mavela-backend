@@ -51,12 +51,11 @@ The seeded entries are intentionally non-live and use `COMING_SOON`:
 | `international-transfers` | `INTERNATIONAL_REMITTANCE` | none until an approved partner defines it |
 
 `COMING_SOON` means no provider/funding path exists today. `UNAVAILABLE`
-means a known service cannot be used at the moment. `AVAILABLE` may be
-configured only after an approved server-side provider adapter and funding
-path are ready. The database requires provider metadata before it can be set
-to `AVAILABLE`; an application deployment must additionally validate the
-provider adapter and funding readiness before it exposes a live purchase
-workflow.
+means a known service cannot be used at the moment. The current customer and
+staff catalogue implementation deliberately blocks `AVAILABLE` at the database
+and API layers. A future provider/payment architecture must be introduced in a
+separate reviewed migration and command module before any service can become
+live.
 
 ## Prerequisites for live services
 

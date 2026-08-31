@@ -60,6 +60,27 @@ class AdminPermissionTests {
     }
 
     @Test
+    void servicesManagerReceivesOnlyServicesPermissions() {
+        assertThat(AdminPermission.fromTrustedGroups(
+                List.of("SERVICES_MANAGER")
+        )).containsExactlyInAnyOrder(
+                AdminPermission.SERVICES_READ,
+                AdminPermission.SERVICES_MANAGE
+        );
+    }
+
+    @Test
+    void kycRewardsAndPlatformGroupsDoNotImplicitlyReceiveServicesPermissions() {
+        assertThat(AdminPermission.fromTrustedGroups(List.of(
+                "KYC_REVIEWER", "KYC_SUPERVISOR", "REWARDS_MANAGER",
+                "PLATFORM_ADMIN"
+        ))).doesNotContain(
+                AdminPermission.SERVICES_READ,
+                AdminPermission.SERVICES_MANAGE
+        );
+    }
+
+    @Test
     void unknownGroupsGrantNoPermissions() {
         assertThat(AdminPermission.fromTrustedGroups(
                 List.of("KYC_REVIEWER_LOOKALIKE", "CUSTOMER_ADMIN")

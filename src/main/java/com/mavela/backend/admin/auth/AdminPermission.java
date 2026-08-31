@@ -16,6 +16,8 @@ public enum AdminPermission {
     KYC_SUPERVISE("kyc:supervise"),
     REWARDS_READ("rewards:read"),
     REWARDS_ADJUST("rewards:adjust"),
+    SERVICES_READ("services:read"),
+    SERVICES_MANAGE("services:manage"),
     STAFF_MANAGE("staff:manage");
 
     private static final Set<AdminPermission> REVIEWER_PERMISSIONS = Set.of(
@@ -28,6 +30,12 @@ public enum AdminPermission {
             Set.of(
                     REWARDS_READ,
                     REWARDS_ADJUST
+            );
+
+    private static final Set<AdminPermission> SERVICES_MANAGER_PERMISSIONS =
+            Set.of(
+                    SERVICES_READ,
+                    SERVICES_MANAGE
             );
 
     private final String authority;
@@ -64,6 +72,9 @@ public enum AdminPermission {
                 }
                 case "REWARDS_MANAGER" -> permissions.addAll(
                         REWARDS_MANAGER_PERMISSIONS
+                );
+                case "SERVICES_MANAGER" -> permissions.addAll(
+                        SERVICES_MANAGER_PERMISSIONS
                 );
                 case "PLATFORM_ADMIN" -> permissions.add(STAFF_MANAGE);
                 default -> {
