@@ -61,6 +61,7 @@ public class ServicesCatalogueService {
     }
 
     private boolean isCustomerVisible(ServiceCatalogueEntry entry) {
-        return entry.getAvailability() != ServiceAvailability.UNAVAILABLE;
+        return entry.isCustomerVisible()
+                && entry.getAvailability() != ServiceAvailability.UNAVAILABLE;
     }
 }

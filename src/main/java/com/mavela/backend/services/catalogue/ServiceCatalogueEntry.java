@@ -13,6 +13,7 @@ import jakarta.persistence.OrderColumn;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -45,6 +46,9 @@ public class ServiceCatalogueEntry {
     @Column(name = "display_order", nullable = false)
     private short displayOrder;
 
+    @Column(name = "customer_visible", nullable = false)
+    private boolean customerVisible;
+
     @Column(name = "minimum_amount", precision = 19, scale = 4)
     private BigDecimal minimumAmount;
 
@@ -74,6 +78,10 @@ public class ServiceCatalogueEntry {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
 
     protected ServiceCatalogueEntry() {
     }
@@ -112,6 +120,10 @@ public class ServiceCatalogueEntry {
         return displayOrder;
     }
 
+    public boolean isCustomerVisible() {
+        return customerVisible;
+    }
+
     public BigDecimal getMinimumAmount() {
         return minimumAmount;
     }
@@ -130,5 +142,34 @@ public class ServiceCatalogueEntry {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
+    /**
+     * The only mutable catalogue configuration exposed to staff operations.
+     * This intentionally cannot configure a provider or make a service live.
+     */
+    public void updateOperationalConfiguration(
+            ServiceAvailability availability,
+            boolean customerVisible,
+            short displayOrder
+    ) {
+        if (availability == ServiceAvailability.AVAILABLE) {
+            throw new IllegalArgumentException(
+                    "A service provider is not configured"
+            );
+        }
+        if (displayOrder <= 0) {
+            throw new IllegalArgumentException(
+                    "Display order must be positive"
+            );
+        }
+
+        this.availability = availability;
+        this.customerVisible = customerVisible;
+        this.displayOrder = displayOrder;
     }
 }
