@@ -4,8 +4,9 @@ import java.time.Clock;
 import java.time.Instant;
 
 /**
- * Concurrency-safe, memory-only QSwitch staging token manager. Authentication
- * refreshes never replay a future payment or other state-changing command.
+ * Concurrency-safe, memory-only QSwitch staging token manager. QSwitch's
+ * current staging refresh endpoint is not used; an expiring token is replaced
+ * through a new supported application-token exchange.
  */
 public final class QSwitchStagingTokenManager {
 
@@ -67,9 +68,7 @@ public final class QSwitchStagingTokenManager {
             if (isUsable(token, now)) {
                 return token;
             }
-            QSwitchTokenPair replacement = token == null
-                    ? tokenTransport.acquireInitialToken(properties)
-                    : refreshOrAcquireFresh(token);
+            QSwitchTokenPair replacement = tokenTransport.acquireInitialToken(properties);
             if (!isUsable(replacement, now)) {
                 throw new QSwitchIntegrationException(
                         QSwitchIntegrationErrorCode.INVALID_RESPONSE
@@ -77,14 +76,6 @@ public final class QSwitchStagingTokenManager {
             }
             cachedToken = replacement;
             return replacement;
-        }
-    }
-
-    private QSwitchTokenPair refreshOrAcquireFresh(QSwitchTokenPair currentToken) {
-        try {
-            return tokenTransport.refreshToken(properties, currentToken);
-        } catch (QSwitchIntegrationException ignored) {
-            return tokenTransport.acquireInitialToken(properties);
         }
     }
 

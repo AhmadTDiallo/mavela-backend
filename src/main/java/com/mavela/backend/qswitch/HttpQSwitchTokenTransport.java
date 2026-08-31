@@ -50,33 +50,14 @@ public class HttpQSwitchTokenTransport implements QSwitchTokenTransport {
         return exchange(
                 properties,
                 properties.initialTokenEndpoint(),
-                body,
-                null
-        );
-    }
-
-    @Override
-    public QSwitchTokenPair refreshToken(
-            QSwitchProperties properties,
-            QSwitchTokenPair currentToken
-    ) {
-        Map<String, String> body = new LinkedHashMap<>();
-        body.put("grant_type", "refresh_token");
-        body.put("app_token", properties.getAppToken());
-        body.put("refresh_token", currentToken.refreshToken());
-        return exchange(
-                properties,
-                properties.refreshTokenEndpoint(),
-                body,
-                currentToken.refreshToken()
+                body
         );
     }
 
     private QSwitchTokenPair exchange(
             QSwitchProperties properties,
             java.net.URI endpoint,
-            Map<String, String> body,
-            String existingRefreshToken
+            Map<String, String> body
     ) {
         if (!properties.isStagingAuthenticationConfigured()) {
             throw new QSwitchIntegrationException(
@@ -99,7 +80,7 @@ public class HttpQSwitchTokenTransport implements QSwitchTokenTransport {
                     request,
                     HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
             );
-            return parseTokenResponse(response, properties, existingRefreshToken);
+            return parseTokenResponse(response, properties);
         } catch (java.net.http.HttpTimeoutException exception) {
             throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.TIMEOUT, exception);
         } catch (InterruptedException exception) {
@@ -112,8 +93,7 @@ public class HttpQSwitchTokenTransport implements QSwitchTokenTransport {
 
     QSwitchTokenPair parseTokenResponse(
             HttpResponse<String> response,
-            QSwitchProperties properties,
-            String existingRefreshToken
+            QSwitchProperties properties
     ) {
         if (response.statusCode() == 401 || response.statusCode() == 403) {
             throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.AUTHENTICATION_FAILED);
@@ -131,16 +111,11 @@ public class HttpQSwitchTokenTransport implements QSwitchTokenTransport {
         try {
             JsonNode body = objectMapper.readTree(response.body());
             String accessToken = text(body, "access_token");
-            String refreshToken = text(body, "refresh_token");
-            if (refreshToken == null && existingRefreshToken != null) {
-                refreshToken = existingRefreshToken;
-            }
-            if (accessToken == null || refreshToken == null) {
+            if (accessToken == null) {
                 throw new QSwitchIntegrationException(QSwitchIntegrationErrorCode.INVALID_RESPONSE);
             }
             return new QSwitchTokenPair(
                     accessToken,
-                    refreshToken,
                     clock.instant().plus(properties.getStagingTokenLifetime())
             );
         } catch (IOException exception) {

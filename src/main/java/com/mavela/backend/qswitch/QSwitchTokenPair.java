@@ -2,19 +2,16 @@ package com.mavela.backend.qswitch;
 
 import java.time.Instant;
 
-/** In-memory-only token pair. Its values must never be persisted or logged. */
+/** In-memory-only QSwitch access-token cache entry. It must never be persisted or logged. */
 public record QSwitchTokenPair(
         String accessToken,
-        String refreshToken,
         Instant expiresAt
 ) {
 
     public QSwitchTokenPair {
-        if (accessToken == null || accessToken.isBlank()
-                || refreshToken == null || refreshToken.isBlank()
-                || expiresAt == null) {
+        if (accessToken == null || accessToken.isBlank() || expiresAt == null) {
             throw new IllegalArgumentException(
-                    "access token, refresh token, and expiry are required"
+                    "access token and expiry are required"
             );
         }
     }

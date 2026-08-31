@@ -38,9 +38,9 @@ class QSwitchOAuthTokenClientTests {
     }
 
     @Test
-    void refreshesBeforeExpiry() {
+    void reauthenticatesBeforeExpiryWithoutUsingTheRefreshEndpoint() {
         var clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
-        var refreshCalls = new AtomicInteger();
+        var initialCalls = new AtomicInteger();
         var manager = manager(clock, new QSwitchTokenTransport() {
             @Override
             public QSwitchAccessToken requestToken(QSwitchProperties properties) {
@@ -49,23 +49,15 @@ class QSwitchOAuthTokenClientTests {
 
             @Override
             public QSwitchTokenPair acquireInitialToken(QSwitchProperties properties) {
-                return pair("initial", clock, 120);
-            }
-
-            @Override
-            public QSwitchTokenPair refreshToken(
-                    QSwitchProperties properties,
-                    QSwitchTokenPair currentToken
-            ) {
-                return pair("refreshed-" + refreshCalls.incrementAndGet(), clock, 120);
+                return pair("initial-" + initialCalls.incrementAndGet(), clock, 120);
             }
         });
 
-        assertThat(manager.accessToken()).isEqualTo("initial");
+        assertThat(manager.accessToken()).isEqualTo("initial-1");
         clock.advanceSeconds(91);
 
-        assertThat(manager.accessToken()).isEqualTo("refreshed-1");
-        assertThat(refreshCalls).hasValue(1);
+        assertThat(manager.accessToken()).isEqualTo("initial-2");
+        assertThat(initialCalls).hasValue(2);
     }
 
     @Test
@@ -105,7 +97,7 @@ class QSwitchOAuthTokenClientTests {
     }
 
     @Test
-    void refreshFailureFallsBackToFreshAuthentication() {
+    void invalidatingTheCachedTokenForcesFreshAuthentication() {
         var clock = new MutableClock(Instant.parse("2026-01-01T00:00:00Z"));
         var initialCalls = new AtomicInteger();
         var manager = manager(clock, new QSwitchTokenTransport() {
@@ -119,19 +111,10 @@ class QSwitchOAuthTokenClientTests {
                 return pair("initial-" + initialCalls.incrementAndGet(), clock, 120);
             }
 
-            @Override
-            public QSwitchTokenPair refreshToken(
-                    QSwitchProperties properties,
-                    QSwitchTokenPair currentToken
-            ) {
-                throw new QSwitchIntegrationException(
-                        QSwitchIntegrationErrorCode.AUTHENTICATION_FAILED
-                );
-            }
         });
 
         assertThat(manager.accessToken()).isEqualTo("initial-1");
-        clock.advanceSeconds(91);
+        manager.invalidate();
 
         assertThat(manager.accessToken()).isEqualTo("initial-2");
         assertThat(initialCalls).hasValue(2);
@@ -190,7 +173,6 @@ class QSwitchOAuthTokenClientTests {
     void tokenDiagnosticRepresentationIsAlwaysRedacted() {
         assertThat(new QSwitchTokenPair(
                 "access-token-that-must-not-appear",
-                "refresh-token-that-must-not-appear",
                 Instant.parse("2026-01-01T00:10:00Z")
         ).toString()).isEqualTo("QSwitchTokenPair[redacted]");
     }
@@ -213,7 +195,6 @@ class QSwitchOAuthTokenClientTests {
     ) {
         return new QSwitchTokenPair(
                 accessToken,
-                "refresh-" + accessToken,
                 clock.instant().plusSeconds(expiresInSeconds)
         );
     }

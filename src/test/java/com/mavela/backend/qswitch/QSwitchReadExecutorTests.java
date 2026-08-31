@@ -73,7 +73,6 @@ class QSwitchReadExecutorTests {
                     public QSwitchTokenPair acquireInitialToken(QSwitchProperties ignored) {
                         return new QSwitchTokenPair(
                                 "token-" + tokenRequests.incrementAndGet(),
-                                "refresh-token",
                                 clock.instant().plusSeconds(120)
                         );
                     }

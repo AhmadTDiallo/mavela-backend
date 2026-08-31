@@ -7,8 +7,8 @@ boundary:
 Mavela backend -> QSwitch staging
 ```
 
-Flutter must never call QSwitch directly and never receives a QSwitch access or
-refresh token. There is no public Mavela endpoint for QSwitch token state.
+Flutter must never call QSwitch directly and never receives a QSwitch access
+token. There is no public Mavela endpoint for QSwitch token state.
 
 ## Scope and current limitation
 
@@ -54,21 +54,12 @@ Content-Type: application/json
 Its JSON body contains exactly `app_token` and `app_secret`. It must not include
 `grant_type`.
 
-The refresh request is:
-
-```text
-POST /epp2/fintech/auth/token/refresh
-Content-Type: application/json
-```
-
-Its JSON body contains `grant_type` set to `refresh_token`, `app_token`, and the
-current `refresh_token`.
-
-The documented access-token lifetime is 240 hours. The backend keeps the access
-and refresh token only in a concurrency-safe in-memory cache, refreshes before
-expiry, and prevents concurrent refresh stampedes. A failed refresh performs a
-fresh initial authentication exchange; it never replays a future state-changing
-or money-moving request.
+The documented access-token lifetime is 240 hours. QSwitch has confirmed that
+its staging refresh endpoint is not currently partner-ready, so Mavela does not
+call or retain a refresh token. The backend keeps only the access token in a
+concurrency-safe in-memory cache and obtains a new initial token before expiry.
+Concurrent renewal requests are coalesced, and no future state-changing or
+money-moving request is replayed.
 
 Token values, credentials, raw provider responses, and authorization headers
 are never persisted, logged, returned through Mavela APIs, or included in

@@ -82,29 +82,6 @@ class QSwitchStagingHttpContractTests {
     }
 
     @Test
-    void refreshRequestIncludesTheConfirmedRefreshGrant() throws Exception {
-        server.enqueue(successfulTokenResponse());
-
-        transport.refreshToken(
-                properties,
-                new QSwitchTokenPair(
-                        "old-access-token",
-                        "old-refresh-token",
-                        clock.instant().plusSeconds(60)
-                )
-        );
-        RecordedRequest request = takeRequest();
-        JsonNode body = objectMapper.readTree(request.getBody().readUtf8());
-
-        assertThat(request.getPath()).isEqualTo("/epp2/fintech/auth/token/refresh");
-        assertThat(body.size()).isEqualTo(3);
-        assertThat(body.has("grant_type")).isTrue();
-        assertThat(body.has("app_token")).isTrue();
-        assertThat(body.has("refresh_token")).isTrue();
-        assertThat(body.path("grant_type").asText()).isEqualTo("refresh_token");
-    }
-
-    @Test
     void authenticationFailuresAndProviderBodiesAreMappedSafely() {
         server.enqueue(new MockResponse()
                 .setResponseCode(401)
@@ -135,8 +112,7 @@ class QSwitchStagingHttpContractTests {
 
     private MockResponse successfulTokenResponse() {
         return new MockResponse().setResponseCode(200).setBody(
-                "{\"access_token\":\"test-access-token\","
-                        + "\"refresh_token\":\"test-refresh-token\"}"
+                "{\"access_token\":\"test-access-token\"}"
         );
     }
 

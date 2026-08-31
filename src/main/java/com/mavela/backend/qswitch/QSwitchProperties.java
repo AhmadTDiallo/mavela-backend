@@ -229,11 +229,6 @@ public class QSwitchProperties {
         return baseUrl.resolve("/epp2/fintech/auth/token");
     }
 
-    URI refreshTokenEndpoint() {
-        requireStagingAuthenticationConfiguration();
-        return baseUrl.resolve("/epp2/fintech/auth/token/refresh");
-    }
-
     URI apiEndpoint(String path) {
         requireStagingAuthenticationConfiguration();
         if (!isSafeAbsolutePath(path)) {

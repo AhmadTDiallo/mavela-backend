@@ -33,8 +33,7 @@ class HttpQSwitchTokenTransportTests {
 
         assertThatThrownBy(() -> transport.parseTokenResponse(
                 response,
-                QSwitchPropertiesTests.completeStagingProperties(),
-                null
+                QSwitchPropertiesTests.completeStagingProperties()
         ))
                 .isInstanceOf(QSwitchIntegrationException.class)
                 .satisfies(exception -> {
@@ -56,8 +55,7 @@ class HttpQSwitchTokenTransportTests {
 
         assertThatThrownBy(() -> transport.parseTokenResponse(
                 response,
-                QSwitchPropertiesTests.completeStagingProperties(),
-                null
+                QSwitchPropertiesTests.completeStagingProperties()
         ))
                 .isInstanceOf(QSwitchIntegrationException.class)
                 .satisfies(exception -> {
@@ -75,22 +73,16 @@ class HttpQSwitchTokenTransportTests {
     }
 
     @Test
-    void rejectsAResponseWithoutTheRequiredRefreshToken() {
+    void acceptsAnInitialResponseWithoutAnUnusedRefreshToken() {
         var response = response(200, "{\"access_token\":\"sensitive-token\"}", Map.of());
 
-        assertThatThrownBy(() -> transport.parseTokenResponse(
+        QSwitchTokenPair token = transport.parseTokenResponse(
                 response,
-                QSwitchPropertiesTests.completeStagingProperties(),
-                null
-        ))
-                .isInstanceOf(QSwitchIntegrationException.class)
-                .satisfies(exception -> {
-                    var integrationException = (QSwitchIntegrationException) exception;
-                    assertThat(integrationException.getErrorCode())
-                            .isEqualTo(QSwitchIntegrationErrorCode.INVALID_RESPONSE);
-                    assertThat(integrationException.getMessage())
-                            .doesNotContain("sensitive-token");
-                });
+                QSwitchPropertiesTests.completeStagingProperties()
+        );
+
+        assertThat(token.accessToken()).isEqualTo("sensitive-token");
+        assertThat(token.toString()).doesNotContain("sensitive-token");
     }
 
     private HttpResponse<String> response(

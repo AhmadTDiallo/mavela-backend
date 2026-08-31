@@ -70,7 +70,6 @@ class QSwitchAuthenticatedClientTests {
         public QSwitchTokenPair acquireInitialToken(QSwitchProperties properties) {
             return new QSwitchTokenPair(
                     "test-access-token",
-                    "test-refresh-token",
                     Instant.parse("2026-01-02T00:00:00Z")
             );
         }
